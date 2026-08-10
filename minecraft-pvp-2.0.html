@@ -1409,7 +1409,7 @@ function buildSunMesh() {
 /* ---------- 용암 바다 (아레나 아래) ---------- */
 function buildLavaSea() {
   /* 아틀라스 타일 하나를 반복해야 하므로 격자 쿼드로 만든다 */
-  var mb = new MB(), uv = tileUV(curMap.sea.tile), N = 34, CELL = 26, H = N * CELL / 2;
+  var mb = new MB(), uv = tileUV(curMap.sea.tile), N = 15, CELL = 22, H = N * CELL / 2;
   for (var i = 0; i < N; i++) for (var j = 0; j < N; j++) {
     var x0 = -H + i * CELL, z0 = -H + j * CELL, x1 = x0 + CELL, z1 = z0 + CELL;
     var f = 0.82 + ((i * 7 + j * 13) % 5) * 0.06, sc = curMap.sea.col;
@@ -1489,7 +1489,7 @@ function buildItemMesh(sprite, thickness) {
 /* ---------- 파티클 ---------- */
 var particles = [];
 function spawnParticle(x, y, z, vx, vy, vz, size, life, col, tile, grav, additive) {
-  if (particles.length > 1400) return;
+  if (particles.length > (Game.settings.lowFx ? 260 : 720)) return;
   particles.push({
     x: x, y: y, z: z, px: x, py: y, pz: z, vx: vx, vy: vy, vz: vz,
     size: size, life: life, max: life, col: col, tile: tile === undefined ? T.WHITE : tile,
@@ -1628,11 +1628,12 @@ var SKIN_DEFS = [
 ];
 
 /* ---------------- AABB 충돌 ---------------- */
-function collectBoxes(bb, dx, dy, dz) {
+var _boxScratch = [[], []], _boxSlot = 0;
+function collectBoxes(bb, dx, dy, dz, slot) {
   var x0 = Math.floor(Math.min(bb.x0, bb.x0 + dx)) - 1, x1 = Math.floor(Math.max(bb.x1, bb.x1 + dx)) + 1;
   var y0 = Math.floor(Math.min(bb.y0, bb.y0 + dy)) - 1, y1 = Math.floor(Math.max(bb.y1, bb.y1 + dy)) + 1;
   var z0 = Math.floor(Math.min(bb.z0, bb.z0 + dz)) - 1, z1 = Math.floor(Math.max(bb.z1, bb.z1 + dz)) + 1;
-  var out = [];
+  var out = _boxScratch[slot || 0]; out.length = 0;
   for (var y = y0; y <= y1; y++) for (var z = z0; z <= z1; z++) for (var x = x0; x <= x1; x++)
     if (isSolidAt(x, y, z)) out.push(x, y, z);
   return out;
@@ -1676,7 +1677,7 @@ function moveEntity(ent, dx, dy, dz) {
   /* 계단 오르기 */
   if (ent.stepHeight > 0 && blockedH && (ent.onGround || (ody < 0 && dy !== ody))) {
     var sbb = ent.bb(), sdx = odx, sdz = odz, sdy = ent.stepHeight;
-    var sboxes = collectBoxes(sbb, odx, sdy, odz);
+    var sboxes = collectBoxes(sbb, odx, sdy, odz, 1);
     for (i = 0; i < sboxes.length; i += 3) sdy = offY(sboxes[i], sboxes[i + 1], sboxes[i + 2], sbb, sdy);
     bbOff(sbb, 0, sdy, 0);
     for (i = 0; i < sboxes.length; i += 3) sdx = offX(sboxes[i], sboxes[i + 1], sboxes[i + 2], sbb, sdx);
@@ -1732,6 +1733,7 @@ function Entity(o) {
   this.distWalked = 0; this.prevDistWalked = 0;
   this.slot = 0;
   this.kit = KITS.classic; this.gapples = 8; this.pearls = 3; this.pearlCool = 0;
+  this.netQueue = [];
   this.stats = { hits: 0, swings: 0, crits: 0, dmgDealt: 0, dmgTaken: 0, combo: 0, maxCombo: 0, blocked: 0,
     gapples: 0, beams: 0, rages: 0, beamHits: 0 };
   this.stepDist = 0;
@@ -2119,7 +2121,14 @@ Entity.prototype.performAttack = function (target, cooled) {
   this.ticksSinceSwing = 0;
   this.addExhaustion(0.1);
 
-  var applied = target.hurt(dmg, this);
+  var applied;
+  if (Game.online && Net.connected && target === Game.bot && this === Game.player) {
+    /* 온라인 : 피격 판정은 상대가 최종 결정. 화면에는 예상치를 먼저 보여준다 */
+    Net.send({ t: 'h', d: +dmg.toFixed(3), c: crit ? 1 : 0, sw: sweep ? 1 : 0,
+      kb: kb, ya: +this.yaw.toFixed(1), co: +cooled.toFixed(2) });
+    applied = +target.applyArmor(dmg).toFixed(2);
+    target.stats.dmgTaken += applied; this.stats.dmgDealt += applied;
+  } else applied = target.hurt(dmg, this);
   var res = { dmg: dmg, applied: applied, crit: crit, sweep: sweep, cooled: cooled, sprintKb: sprintKb };
 
   if (applied > 0) {
@@ -2196,6 +2205,11 @@ Entity.prototype.castBeam = function () {
   if (this.rageTicks <= 0) this.ult -= BEAM_COST;
   this.beamCool = this.rageTicks > 0 ? 7 : 14;
   this.swingArm();
+  if (Game.online && Net.connected && this === Game.player) {
+    var lvn = this.lookVec();
+    Net.send({ t: 'b', x: this.x + lvn[0] * 0.6, y: this.eyeY() - 0.25, z: this.z + lvn[2] * 0.6,
+      dx: lvn[0], dy: lvn[1], dz: lvn[2], r: this.rageTicks > 0 ? 1 : 0 });
+  }
   this.stats.beams++;
   var lv = this.lookVec();
   var ex = this.x + lv[0] * 0.6, ey = this.eyeY() - 0.25, ez = this.z + lv[2] * 0.6;
@@ -2212,6 +2226,7 @@ Entity.prototype.castRage = function () {
   this.stats.rages++;
   this.health = Math.min(this.maxHealth, this.health + 2);
   Snd.rage();
+  if (Game.online && Net.connected && this === Game.player) Net.send({ t: 'g' });
   for (var i = 0; i < 46; i++) {
     var a = Math.random() * TAU, sp = rnd(0.14, 0.4);
     spawnParticle(this.x, this.y + rnd(0.2, 1.7), this.z, Math.cos(a) * sp, rnd(0.06, 0.28), Math.sin(a) * sp,
@@ -2301,6 +2316,8 @@ Entity.prototype.throwPearl = function () {
   this.stats.pearls = (this.stats.pearls || 0) + 1;
   var lv = this.lookVec();
   pearls.push(new Pearl(this, this.x + lv[0] * 0.5, this.eyeY() - 0.15, this.z + lv[2] * 0.5, lv[0], lv[1], lv[2]));
+  if (Game.online && Net.connected && this === Game.player)
+    Net.send({ t: 'p', x: this.x + lv[0] * 0.5, y: this.eyeY() - 0.15, z: this.z + lv[2] * 0.5, dx: lv[0], dy: lv[1], dz: lv[2] });
   Snd.ender();
   return true;
 };
@@ -2368,19 +2385,21 @@ function tickBeams() {
    봇 AI : 실제 PvP 무브먼트 (스트레이핑 / W탭 / 점프 크리 / 방패 / 갚사)
    ===================================================================== */
 var DIFFS = {
-  easy:   { name: '쉬움',   tag: '초보',   aimErr: 21,  turn: 5.5, react: 12, cps: 1.9, crit: 0.00, block: 0.00,
-            wtap: false, gapHp: 5,   strafe: 0.24, atkStr: 0.42, edge: 0.5,  whiff: 0.115, reach: 2.45,
-            hesitate: 0.028, ultDelay: 150, beamChance: 0.006, color: '#7ec86a' },
-  normal: { name: '보통',   tag: '중수',   aimErr: 11,  turn: 9.5, react: 8,  cps: 2.9, crit: 0.10, block: 0.04,
-            wtap: false, gapHp: 6.5, strafe: 0.50, atkStr: 0.60, edge: 0.8,  whiff: 0.078, reach: 2.70,
-            hesitate: 0.016, ultDelay: 110, beamChance: 0.013, color: '#ffd93d' },
-  hard:   { name: '어려움', tag: '고수',   aimErr: 6.0, turn: 15,  react: 6,  cps: 4.4, crit: 0.25, block: 0.12,
-            wtap: true,  gapHp: 8,   strafe: 0.72, atkStr: 0.78, edge: 0.95, whiff: 0.046, reach: 2.90,
-            hesitate: 0.007, ultDelay: 70,  beamChance: 0.026, color: '#ff9f43' },
-  insane: { name: '극한',   tag: '핵고수', aimErr: 3.0, turn: 24,  react: 4,  cps: 6.2, crit: 0.45, block: 0.22,
-            wtap: true,  gapHp: 10,  strafe: 0.88, atkStr: 0.88, edge: 1.0,  whiff: 0.022, reach: 3.00,
-            hesitate: 0.002, ultDelay: 40,  beamChance: 0.045, color: '#ff5c5c' }
-};function BotAI(ent, diff) {
+  easy:   { name: '쉬움',   tag: '입문',   aimErr: 28,  turn: 4.5, react: 14, cps: 1.5, crit: 0.00, block: 0.00,
+            wtap: false, gapHp: 4,   strafe: 0.18, atkStr: 0.38, edge: 0.5,  whiff: 0.150, reach: 2.30,
+            hesitate: 0.042, ultDelay: 220, beamChance: 0.003, color: '#7ec86a' },
+  normal: { name: '보통',   tag: '초보',   aimErr: 15,  turn: 7.5, react: 10, cps: 2.3, crit: 0.06, block: 0.02,
+            wtap: false, gapHp: 5.5, strafe: 0.40, atkStr: 0.52, edge: 0.8,  whiff: 0.100, reach: 2.55,
+            hesitate: 0.026, ultDelay: 160, beamChance: 0.008, color: '#ffd93d' },
+  hard:   { name: '어려움', tag: '중수',   aimErr: 8.5, turn: 12,  react: 8,  cps: 3.5, crit: 0.16, block: 0.07,
+            wtap: true,  gapHp: 7,   strafe: 0.60, atkStr: 0.68, edge: 0.95, whiff: 0.062, reach: 2.78,
+            hesitate: 0.013, ultDelay: 100, beamChance: 0.017, color: '#ff9f43' },
+  insane: { name: '극한',   tag: '고수',   aimErr: 4.5, turn: 19,  react: 5,  cps: 5.0, crit: 0.32, block: 0.15,
+            wtap: true,  gapHp: 9,   strafe: 0.80, atkStr: 0.82, edge: 1.0,  whiff: 0.032, reach: 2.95,
+            hesitate: 0.005, ultDelay: 60,  beamChance: 0.032, color: '#ff5c5c' }
+};
+
+function BotAI(ent, diff) {
   this.e = ent; this.d = diff;
   this.strafeDir = Math.random() < 0.5 ? 1 : -1;
   this.strafeTimer = 0;
@@ -2599,7 +2618,7 @@ var Render = {
   particleMesh: null,
   camX: 0, camY: 0, camZ: 0, camYaw: 0, camPitch: 0, camRoll: 0,
   fov: 78, thirdPerson: 0, time: 0,
-  resScale: 1, fpsAcc: 0, fpsN: 0, cullPlanes: null, vp: null, drawn: 0, chunks: 0,
+  resScale: 1, fpsAcc: 0, fpsN: 0, pendingResize: false, cullPlanes: null, vp: null, drawn: 0, chunks: 0,
   scratch: null, shadowMesh: null
 };
 
@@ -2759,29 +2778,6 @@ Render.frame = function (alpha) {
   gl.uniform1f(U.uCut, 0.35);
   gl.activeTexture(gl.TEXTURE0);
 
-  /* ---- 하늘 ---- */
-  gl.disable(gl.CULL_FACE); gl.depthMask(false);
-  this.setFog(1e8, 1e9, FC);
-  gl.bindTexture(gl.TEXTURE_2D, this.texAtlas);
-  this.ms.identity().translate(this.camX, this.camY, this.camZ);
-  gl.uniformMatrix4fv(U.uModel, false, this.ms.cur);
-  this.skyMesh.draw();
-  /* 해 */
-  this.ms.identity().translate(this.camX, this.camY, this.camZ).rotY(curMap.sun.yaw * DEG).rotX(curMap.sun.pitch * DEG);
-  gl.uniformMatrix4fv(U.uModel, false, this.ms.cur);
-  this.sunMesh.draw();
-  /* 구름 */
-  gl.enable(gl.BLEND);
-  gl.bindTexture(gl.TEXTURE_2D, this.texCloud);
-  gl.uniform4f(U.uTint, curMap.cloudCol[0], curMap.cloudCol[1], curMap.cloudCol[2], 1);
-  gl.uniform1f(U.uAlpha, curMap.cloudA === undefined ? 0.7 : curMap.cloudA);
-  this.ms.identity().translate(this.camX + this.time * 0.9, SURF + curMap.cloudY, this.camZ);
-  gl.uniformMatrix4fv(U.uModel, false, this.ms.cur);
-  this.cloudMesh.draw();
-  gl.uniform4f(U.uTint, 0, 0, 0, 0); gl.uniform1f(U.uAlpha, 1);
-  gl.disable(gl.BLEND);
-  gl.depthMask(true); gl.enable(gl.CULL_FACE);
-
   /* ---- 용암 바다 ---- */
   this.setFog(Game.settings.render * 1.4, Game.settings.render * 3.4, curMap.sea.fog);
   gl.bindTexture(gl.TEXTURE_2D, this.texAtlas);
@@ -2805,7 +2801,34 @@ Render.frame = function (alpha) {
     }
   }
   /* 바닥 그림자 */
-  this.drawShadows(alpha);
+  if (Game.settings.shadows && !Game.settings.lowFx) this.drawShadows(alpha);
+
+  /* ---- 하늘 (월드 뒤에 그려 오버드로우를 줄인다) ---- */
+  /* ---- 하늘 ---- */
+  gl.disable(gl.CULL_FACE); gl.depthMask(false);
+  this.setFog(1e8, 1e9, FC);
+  gl.bindTexture(gl.TEXTURE_2D, this.texAtlas);
+  this.ms.identity().translate(this.camX, this.camY, this.camZ);
+  gl.uniformMatrix4fv(U.uModel, false, this.ms.cur);
+  this.skyMesh.draw();
+  /* 해 */
+  this.ms.identity().translate(this.camX, this.camY, this.camZ).rotY(curMap.sun.yaw * DEG).rotX(curMap.sun.pitch * DEG);
+  gl.uniformMatrix4fv(U.uModel, false, this.ms.cur);
+  this.sunMesh.draw();
+  /* 구름 */
+  if (!Game.settings.lowFx) {
+  gl.enable(gl.BLEND);
+  gl.bindTexture(gl.TEXTURE_2D, this.texCloud);
+  gl.uniform4f(U.uTint, curMap.cloudCol[0], curMap.cloudCol[1], curMap.cloudCol[2], 1);
+  gl.uniform1f(U.uAlpha, curMap.cloudA === undefined ? 0.7 : curMap.cloudA);
+  this.ms.identity().translate(this.camX + this.time * 0.9, SURF + curMap.cloudY, this.camZ);
+  gl.uniformMatrix4fv(U.uModel, false, this.ms.cur);
+  this.cloudMesh.draw();
+  gl.uniform4f(U.uTint, 0, 0, 0, 0); gl.uniform1f(U.uAlpha, 1);
+  gl.disable(gl.BLEND);
+  }
+  gl.depthMask(true); gl.enable(gl.CULL_FACE);
+
 
   /* ---- 엔티티 ---- */
   for (var i = 0; i < Game.entities.length; i++) {
@@ -2967,7 +2990,7 @@ Render.drawEntity = function (e, alpha) {
     ms.pop();
   }
   gl.uniform4f(U.uTint, 0, 0, 0, 0);
-  if (e._trail) this.drawTrail(e._trail, false);
+  if (e._trail && !Game.settings.lowFx) this.drawTrail(e._trail, false);
 };
 
 /* ---------------- 파티클 (일반 + 가산합성 2패스) ---------------- */
@@ -3159,7 +3182,7 @@ Render.drawHand = function (alpha) {
   if (p.slot !== 1 && swing > 0.02 && swing < 0.96 && itemHandM)
     this.handTrail.push(xform4(itemHandM, [0, 0.74, 0]), xform4(itemHandM, [0, -0.38, 0]));
   else this.handTrail.fade();
-  this.drawTrail(this.handTrail, true);
+  if (!Game.settings.lowFx) this.drawTrail(this.handTrail, true);
   gl.uniformMatrix4fv(U.uView, false, this.ident);
 
   gl.uniformMatrix4fv(U.uProj, false, this.proj);
@@ -3212,12 +3235,12 @@ Render.boxInFrustum = function (b) {
 Render.autoRes = function (fps) {
   if (!Game.settings.dynRes) return;
   this.fpsAcc += fps; this.fpsN++;
-  if (this.fpsN < 40) return;
+  if (this.fpsN < 8) return;
   var avg = this.fpsAcc / this.fpsN; this.fpsAcc = 0; this.fpsN = 0;
   var old = this.resScale;
-  if (avg < 42 && this.resScale > 0.62) this.resScale = Math.max(0.62, this.resScale - 0.12);
-  else if (avg > 58 && this.resScale < 1) this.resScale = Math.min(1, this.resScale + 0.08);
-  if (old !== this.resScale) { this.resize(document.getElementById('gl')); HUD.resize(); }
+  if (avg < 40 && this.resScale > 0.6) this.resScale = Math.max(0.6, this.resScale - 0.1);
+  else if (avg > 70 && this.resScale < 1) this.resScale = Math.min(1, this.resScale + 0.05);
+  if (old !== this.resScale) this.pendingResize = true;
 };
 /* 엔티티 바닥 그림자 */
 Render.drawShadows = function (alpha) {
@@ -3349,19 +3372,14 @@ HUD.draw = function (alpha) {
   var p = Game.player, o = Game.bot;
   if (Game.state === 'menu' || Game.state === 'matchend') return;
 
-  /* ---- 피격 비네트 ---- */
+  /* ---- 피격 비네트 (그라디언트는 캐시) ---- */
   if (p.hurtTime > 0 && !p.dead) {
-    var a = (p.hurtTime / 10) * 0.42;
-    var g = c.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.22, W / 2, H / 2, Math.max(W, H) * 0.62);
-    g.addColorStop(0, 'rgba(150,0,0,0)'); g.addColorStop(1, 'rgba(150,0,0,' + a.toFixed(3) + ')');
-    c.fillStyle = g; c.fillRect(0, 0, W, H);
+    c.globalAlpha = (p.hurtTime / 10) * 0.42;
+    c.fillStyle = this.vig('rgba(150,0,0,'); c.fillRect(0, 0, W, H); c.globalAlpha = 1;
   }
-  /* 체력 낮을 때 붉은 테두리 */
   if (p.health <= 6 && !p.dead && Game.state === 'play') {
-    var pulse = 0.16 + Math.sin(Game.now * 0.006) * 0.07;
-    var g2 = c.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.7);
-    g2.addColorStop(0, 'rgba(120,0,0,0)'); g2.addColorStop(1, 'rgba(120,0,0,' + pulse.toFixed(3) + ')');
-    c.fillStyle = g2; c.fillRect(0, 0, W, H);
+    c.globalAlpha = 0.16 + Math.sin(Game.now * 0.006) * 0.07;
+    c.fillStyle = this.vig('rgba(120,0,0,'); c.fillRect(0, 0, W, H); c.globalAlpha = 1;
   }
 
   if (Game.state === 'menu' || Game.state === 'matchend') return;
@@ -3389,6 +3407,14 @@ HUD.draw = function (alpha) {
   /* ---- 디버그 ---- */
   if (Game.settings.debug) this.drawDebug();
 
+  /* ---- 온라인 상태 ---- */
+  if (Game.online) {
+    var pg = Net.ping;
+    var pc = pg < 60 ? '#7dff9b' : (pg < 140 ? '#ffd93d' : '#ff8f6a');
+    txt(c, (Net.connected ? '● 온라인' : '○ 끊김') + '  ' + pg + 'ms  ' + (Net.isHost ? '방장' : '참가자'),
+      8 * S, 10 * S, 5.2 * S, Net.connected ? pc : '#ff5c5c', 'left');
+  }
+
   /* ---- 2.0 : 궁극 게이지 / 콤보 / 콜아웃 ---- */
   this.drawUlt();
   this.drawCombo();
@@ -3403,6 +3429,15 @@ HUD.draw = function (alpha) {
   this.drawFlash();
 };
 
+HUD.vig = function (rgbPrefix) {
+  var key = rgbPrefix + this.W + 'x' + this.H;
+  if (this._vigKey === key) return this._vig;
+  var c = this.ctx, W = this.W, H = this.H;
+  var g = c.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.24, W / 2, H / 2, Math.max(W, H) * 0.66);
+  g.addColorStop(0, rgbPrefix + '0)'); g.addColorStop(1, rgbPrefix + '1)');
+  this._vigKey = key; this._vig = g;
+  return g;
+};
 HUD.drawCrosshair = function (alpha) {
   var c = this.ctx, W = this.W, H = this.H, S = this.S, p = Game.player;
   var cx = Math.round(W / 2), cy = Math.round(H / 2);
@@ -3768,13 +3803,12 @@ HUD.drawCallouts = function () {
 HUD.drawRageEdge = function () {
   var p = Game.player;
   if (p.rageTicks <= 0) return;
-  var c = this.ctx, W = this.W, H = this.H;
+  var c = this.ctx;
   var pulse = 0.20 + Math.sin(Game.now * 0.010) * 0.09;
   var fade = p.rageTicks < 30 ? p.rageTicks / 30 : 1;
-  var g = c.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.26, W / 2, H / 2, Math.max(W, H) * 0.68);
-  g.addColorStop(0, 'rgba(255,60,0,0)');
-  g.addColorStop(1, 'rgba(255,70,10,' + (pulse * fade).toFixed(3) + ')');
-  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  c.globalAlpha = pulse * fade;
+  c.fillStyle = this.vig('rgba(255,70,10,'); c.fillRect(0, 0, this.W, this.H);
+  c.globalAlpha = 1;
 };
 
 /* VS 인트로 / K.O. 시네마틱 */
@@ -3830,6 +3864,260 @@ HUD.drawCinematic = function () {
   }
 };
 /* =====================================================================
+   온라인 1 vs 1
+   - 모드 A : P2P 직접 연결 (WebRTC DataChannel, 서버 불필요, 코드 교환)
+   - 모드 B : 서버 접속 (WebSocket 중계, 방 코드 4자리)
+   동기화 : 각자 자기 캐릭터를 완전 시뮬레이션하고 상태를 20Hz 로 전송.
+            피격 판정은 "맞은 쪽"이 바닐라 무적시간 규칙으로 최종 결정한다.
+   ===================================================================== */
+var Net = {
+  active: false, mode: '', isHost: false, connected: false, ready: false,
+  pc: null, ch: null, ws: null, room: '',
+  myCode: '', status: '', err: '',
+  ping: 0, lastPingSent: 0, lastRecv: 0, sendAcc: 0,
+  remoteName: '상대', remoteReady: false,
+  onStatus: null
+};
+
+var STUN = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:global.stun.twilio.com:3478' }];
+
+Net.setStatus = function (s) { this.status = s; if (this.onStatus) this.onStatus(s); };
+
+/* ---------------- 코드 압축 ---------------- */
+function b64enc(u8) {
+  var s = '';
+  for (var i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function b64dec(str) {
+  str = str.replace(/-/g, '+').replace(/_/g, '/').replace(/\s+/g, '');
+  var bin = atob(str), u8 = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return u8;
+}
+function packCode(obj) {
+  var json = JSON.stringify(obj);
+  var bytes = new TextEncoder().encode(json);
+  if (typeof CompressionStream === 'undefined') return Promise.resolve('R' + b64enc(bytes));
+  var cs = new CompressionStream('deflate-raw');
+  var w = cs.writable.getWriter(); w.write(bytes); w.close();
+  return new Response(cs.readable).arrayBuffer().then(function (buf) {
+    return 'Z' + b64enc(new Uint8Array(buf));
+  });
+}
+function unpackCode(code) {
+  code = (code || '').trim();
+  if (!code) return Promise.reject(new Error('코드가 비어 있습니다'));
+  var tag = code[0], body = code.slice(1);
+  var u8 = b64dec(body);
+  if (tag === 'R') return Promise.resolve(JSON.parse(new TextDecoder().decode(u8)));
+  if (tag !== 'Z') return Promise.reject(new Error('알 수 없는 코드 형식입니다'));
+  var ds = new DecompressionStream('deflate-raw');
+  var w = ds.writable.getWriter(); w.write(u8); w.close();
+  return new Response(ds.readable).arrayBuffer().then(function (buf) {
+    return JSON.parse(new TextDecoder().decode(new Uint8Array(buf)));
+  });
+}
+
+/* ---------------- 공통 ---------------- */
+Net.reset = function () {
+  try { if (this.ch) this.ch.close(); } catch (e) { }
+  try { if (this.pc) this.pc.close(); } catch (e) { }
+  try { if (this.ws) this.ws.close(); } catch (e) { }
+  this.pc = null; this.ch = null; this.ws = null;
+  this.active = false; this.connected = false; this.ready = false;
+  this.remoteReady = false; this.myCode = ''; this.err = '';
+};
+Net.send = function (o) {
+  try {
+    if (this.mode === 'p2p') { if (this.ch && this.ch.readyState === 'open') this.ch.send(JSON.stringify(o)); }
+    else if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(o));
+  } catch (e) { }
+};
+Net.onOpen = function () {
+  this.connected = true;
+  this.setStatus('연결됨');
+  this.send({ t: 'i', name: Game.myName || '상대', host: this.isHost });
+  this.lastRecv = performance.now();
+  Game.onNetConnected();
+};
+Net.onClose = function (why) {
+  if (!this.active) return;
+  this.connected = false;
+  this.setStatus('연결 끊김' + (why ? ' (' + why + ')' : ''));
+  Game.onNetLost();
+};
+
+/* ---------------- 모드 A : WebRTC P2P ---------------- */
+Net.p2pHost = function () {
+  var self = this;
+  this.reset(); this.active = true; this.mode = 'p2p'; this.isHost = true;
+  this.setStatus('코드 생성 중...');
+  this.pc = new RTCPeerConnection({ iceServers: STUN });
+  this.ch = this.pc.createDataChannel('g', { ordered: false, maxRetransmits: 0 });
+  this._wireChannel(this.ch);
+  return this.pc.createOffer()
+    .then(function (o) { return self.pc.setLocalDescription(o); })
+    .then(function () { return self._iceDone(); })
+    .then(function () { return packCode({ t: 'o', s: self.pc.localDescription.sdp }); })
+    .then(function (code) { self.myCode = code; self.setStatus('상대에게 코드를 보내세요'); return code; });
+};
+Net.p2pJoin = function (offerCode) {
+  var self = this;
+  this.reset(); this.active = true; this.mode = 'p2p'; this.isHost = false;
+  this.setStatus('연결 중...');
+  this.pc = new RTCPeerConnection({ iceServers: STUN });
+  this.pc.ondatachannel = function (e) { self.ch = e.channel; self._wireChannel(e.channel); };
+  return unpackCode(offerCode)
+    .then(function (obj) {
+      if (obj.t !== 'o') throw new Error('방장 코드가 아닙니다');
+      return self.pc.setRemoteDescription({ type: 'offer', sdp: obj.s });
+    })
+    .then(function () { return self.pc.createAnswer(); })
+    .then(function (a) { return self.pc.setLocalDescription(a); })
+    .then(function () { return self._iceDone(); })
+    .then(function () { return packCode({ t: 'a', s: self.pc.localDescription.sdp }); })
+    .then(function (code) { self.myCode = code; self.setStatus('응답 코드를 방장에게 보내세요'); return code; });
+};
+Net.p2pAccept = function (answerCode) {
+  var self = this;
+  return unpackCode(answerCode).then(function (obj) {
+    if (obj.t !== 'a') throw new Error('응답 코드가 아닙니다');
+    return self.pc.setRemoteDescription({ type: 'answer', sdp: obj.s });
+  }).then(function () { self.setStatus('연결 수립 중...'); });
+};
+Net._iceDone = function () {
+  var pc = this.pc;
+  if (pc.iceGatheringState === 'complete') return Promise.resolve();
+  return new Promise(function (res) {
+    var done = false;
+    function fin() { if (done) return; done = true; res(); }
+    pc.onicegatheringstatechange = function () { if (pc.iceGatheringState === 'complete') fin(); };
+    setTimeout(fin, 2500);   // 느린 STUN 대비 타임아웃
+  });
+};
+Net._wireChannel = function (ch) {
+  var self = this;
+  ch.onopen = function () { self.onOpen(); };
+  ch.onclose = function () { self.onClose(); };
+  ch.onerror = function () { self.err = '데이터 채널 오류'; };
+  ch.onmessage = function (e) { self.handle(e.data); };
+};
+
+/* ---------------- 모드 B : WebSocket 서버 ---------------- */
+Net.wsConnect = function (url, room, asHost) {
+  var self = this;
+  this.reset(); this.active = true; this.mode = 'ws'; this.isHost = !!asHost; this.room = room;
+  this.setStatus('서버 접속 중...');
+  return new Promise(function (res, rej) {
+    var ws;
+    try { ws = new WebSocket(url); } catch (e) { rej(e); return; }
+    self.ws = ws;
+    var settled = false;
+    ws.onopen = function () {
+      ws.send(JSON.stringify({ t: 'join', room: room, name: Game.myName || '플레이어' }));
+      self.setStatus('방 ' + room + ' — 상대 기다리는 중...');
+      if (!settled) { settled = true; res(); }
+    };
+    ws.onmessage = function (e) {
+      var m; try { m = JSON.parse(e.data); } catch (x) { return; }
+      if (m.t === 'joined') { self.isHost = !!m.host; self.setStatus('방 ' + room + ' — ' + (m.host ? '방장' : '참가자')); return; }
+      if (m.t === 'peer') { self.onOpen(); return; }
+      if (m.t === 'left') { self.onClose('상대 퇴장'); return; }
+      if (m.t === 'full') { self.err = '방이 가득 찼습니다'; self.setStatus('방이 가득 찼습니다'); return; }
+      self.handle(e.data);
+    };
+    ws.onclose = function () { self.onClose('서버 연결 종료'); if (!settled) { settled = true; rej(new Error('서버에 접속할 수 없습니다')); } };
+    ws.onerror = function () { if (!settled) { settled = true; rej(new Error('서버에 접속할 수 없습니다')); } };
+  });
+};
+
+/* ---------------- 수신 처리 ---------------- */
+Net.handle = function (raw) {
+  var m; try { m = JSON.parse(raw); } catch (e) { return; }
+  this.lastRecv = performance.now();
+  var r = Game.bot;                        // 원격 플레이어는 bot 슬롯을 재사용
+  switch (m.t) {
+    case 'i':
+      this.remoteName = (m.name || '상대').slice(0, 12);
+      if (r) r.name = this.remoteName;
+      break;
+    case 'ready': this.remoteReady = true; break;
+    case 's':                              // 상태 스냅샷
+      if (r) {
+        r.netQueue.push(m);
+        if (r.netQueue.length > 4) r.netQueue.shift();
+      }
+      break;
+    case 'h': Game.netTakeHit(m); break;   // 상대가 나를 때렸다
+    case 'd': Game.netRemoteDied(m); break;
+    case 'b': Game.netRemoteBeam(m); break;
+    case 'p': Game.netRemotePearl(m); break;
+    case 'g': Game.netRemoteRage(m); break;
+    case 'r': Game.netRound(m); break;     // 방장의 라운드 제어
+    case 'ping': this.send({ t: 'pong', v: m.v }); break;
+    case 'pong': this.ping = Math.round(performance.now() - m.v); break;
+  }
+};
+
+/* ---------------- 송신 ---------------- */
+Net.tick = function () {
+  if (!this.connected) return;
+  var p = Game.player;
+  this.send({
+    t: 's', x: +p.x.toFixed(3), y: +p.y.toFixed(3), z: +p.z.toFixed(3),
+    vx: +p.vx.toFixed(3), vy: +p.vy.toFixed(3), vz: +p.vz.toFixed(3),
+    ya: Math.round(p.yaw * 10) / 10, pi: Math.round(p.pitch * 10) / 10,
+    by: Math.round(p.bodyYaw * 10) / 10,
+    hp: +p.health.toFixed(2), ab: +p.absorption.toFixed(2), ul: Math.round(p.ult),
+    sl: p.slot, ga: p.gapples, pe: p.pearls, ls: +p.limbSwing.toFixed(2), la: +p.limbSwingAmount.toFixed(2),
+    sw: p.swinging ? p.swingTicks : -1,
+    f: (p.sneaking ? 1 : 0) | (p.sprinting ? 2 : 0) | (p.blocking ? 4 : 0) |
+       (p.eating ? 8 : 0) | (p.dead ? 16 : 0) | (p.rageTicks > 0 ? 32 : 0) | (p.hurtTime > 0 ? 64 : 0),
+    og: p.onGround ? 1 : 0
+  });
+  /* 핑 측정 */
+  var now = performance.now();
+  if (now - this.lastPingSent > 1000) { this.lastPingSent = now; this.send({ t: 'ping', v: now }); }
+  /* 타임아웃 */
+  if (now - this.lastRecv > 8000) this.onClose('응답 없음');
+};
+
+/* ---------------- 원격 엔티티 보간 ---------------- */
+Entity.prototype.netTick = function () {
+  this.px = this.x; this.py = this.y; this.pz = this.z;
+  this.pYaw = this.yaw; this.pPitch = this.pitch; this.pBodyYaw = this.bodyYaw;
+  this.pSwingProgress = this.swingProgress;
+  this.pLimbSwingAmount = this.limbSwingAmount;
+  if (this.hurtTime > 0) this.hurtTime--;
+  if (this.rageTicks > 0) this.rageTicks--;
+
+  var q = this.netQueue;
+  if (q.length) {
+    if (q.length > 3) q.shift();            // 밀렸으면 따라잡기
+    var m = q.shift();
+    this.x = m.x; this.y = m.y; this.z = m.z;
+    this.vx = m.vx; this.vy = m.vy; this.vz = m.vz;
+    this.yaw = m.ya; this.pitch = m.pi; this.bodyYaw = m.by;
+    this.health = m.hp; this.absorption = m.ab; this.ult = m.ul;
+    this.slot = m.sl; this.gapples = m.ga; this.pearls = m.pe;
+    this.limbSwing = m.ls; this.limbSwingAmount = m.la;
+    this.onGround = !!m.og;
+    this.sneaking = !!(m.f & 1); this.sprinting = !!(m.f & 2);
+    this.blocking = !!(m.f & 4); this.eating = !!(m.f & 8);
+    this.dead = !!(m.f & 16);
+    if ((m.f & 32) && this.rageTicks <= 0) this.rageTicks = 20;
+    if ((m.f & 64) && this.hurtTime <= 0) this.hurtTime = 8;
+    if (m.sw >= 0) { this.swinging = true; this.swingTicks = m.sw; }
+    else { this.swinging = false; this.swingTicks = -1; }
+    if (this.dead) this.deathTicks++;
+  } else {
+    /* 패킷 공백 : 마지막 속도로 짧게 외삽 */
+    this.x += this.vx * 0.5; this.y += this.vy * 0.5; this.z += this.vz * 0.5;
+  }
+  this.swingProgress = this.swinging ? (this.swingTicks + 1) / 6 : 0;
+};
+/* =====================================================================
    게임 : 상태머신 / 룰 / 메뉴 / 루프
    ===================================================================== */
 var Game = {
@@ -3844,9 +4132,10 @@ var Game = {
   settings: {
     sens: 0.55, fov: 78, vol: 0.6, sound: true, render: 110, bob: true,
     dmgNum: true, indicator: true, autoAtk: false, invY: false, debug: false, bo: 3, thirdAllowed: true,
-    dynRes: true, shadows: true
+    dynRes: true, shadows: true, hitStop: true, lowFx: false
   },
   menuCam: null, lastW: 0, paused: false,
+  online: false, myName: '플레이어', netSeat: 0,
   /* --- 2.0 POWER --- */
   shake: 0, hitStop: 0, timeScale: 1,
   koCam: { active: false, target: null, t: 0, dur: 55, baseAng: 0 },
@@ -3963,6 +4252,7 @@ Game.onDeath = function (e, killer, cause) {
       rnd(0.12, 0.26), rndInt(12, 26), [1, rnd(0.2, 0.5), 0.1], T.GLOWORB, 0.012, true);
   }
   if (this.state === 'play') {
+    if (this.online && e === this.player) Net.send({ t: 'd' });
     /* --- K.O. 시네마틱 --- */
     var iWon = (e !== this.player);
     this.koCam.active = true; this.koCam.target = e; this.koCam.t = 0;
@@ -3981,7 +4271,10 @@ Game.onDeath = function (e, killer, cause) {
 
 /* ---------------- 2.0 : 파워 이벤트 ---------------- */
 Game.addShake = function (v) { this.shake = Math.min(1.6, this.shake + v); };
-Game.stopHit = function (ms) { this.hitStop = Math.max(this.hitStop, ms); };
+Game.stopHit = function (ms) {
+  if (!this.settings.hitStop) return;
+  this.hitStop = Math.max(this.hitStop, Math.min(26, ms * 0.42));
+};
 
 Game.onUltReady = function (e) {
   if (e === this.player) {
@@ -4016,6 +4309,79 @@ Game.onBeamHit = function (a, t, applied) {
   }
 };
 
+/* =====================================================================
+   온라인 연동
+   ===================================================================== */
+Game.onNetConnected = function () {
+  this.online = true;
+  this.netSeat = Net.isHost ? 0 : 1;
+  this.bot.name = Net.remoteName;
+  this.log('상대와 연결되었습니다 — ' + (Net.isHost ? '방장' : '참가자'), '#7dff9b');
+  HUD.addCallout('연결 완료', Net.remoteName + ' 님과 매칭', '#7dff9b', 16);
+  if (Net.isHost) { this.startMatch(); this.netBroadcastRound('start'); }
+};
+Game.onNetLost = function () {
+  if (!this.online) return;
+  this.online = false;
+  this.log('상대와 연결이 끊겼습니다', '#ff6b6b');
+  HUD.addCallout('연결 끊김', '메인 메뉴로 돌아갑니다', '#ff5c5c', 18);
+  var self = this;
+  setTimeout(function () { if (!Net.connected) { Net.reset(); showMenu(); } }, 1800);
+};
+/* 상대가 나를 때렸다 → 무적시간·방어구는 내가 최종 판정 */
+Game.netTakeHit = function (m) {
+  var p = this.player, b = this.bot;
+  if (p.dead || this.state !== 'play') return;
+  var applied = p.hurt(m.d, b);
+  if (applied >= 0 && m.kb > 0) {
+    var f = (m.ya || b.yaw) * DEG;
+    p.vx += -Math.sin(f) * m.kb * 0.5; p.vy += 0.1; p.vz += Math.cos(f) * m.kb * 0.5;
+  }
+  this.onHit(b, p, { dmg: m.d, applied: applied, crit: !!m.c, sweep: !!m.sw, cooled: m.co || 1, sprintKb: m.kb > 0 });
+  if (p.dead) Net.send({ t: 'd' });
+};
+Game.netRemoteDied = function () {
+  if (this.state !== 'play') return;
+  this.bot.dead = true; this.bot.health = 0; this.bot.deathTicks = 0;
+  this.onDeath(this.bot, this.player, 'melee');
+};
+Game.netRemoteBeam = function (m) {
+  var b = this.bot;
+  var beam = new Beam(b, m.x, m.y, m.z, m.dx, m.dy, m.dz);
+  beam.rage = !!m.r; beam.size = m.r ? 2.5 : 1.9;
+  beams.push(beam); Snd.beam();
+};
+Game.netRemotePearl = function (m) {
+  pearls.push(new Pearl(this.bot, m.x, m.y, m.z, m.dx, m.dy, m.dz));
+  Snd.ender();
+};
+Game.netRemoteRage = function () {
+  this.bot.rageTicks = RAGE_TICKS;
+  this.onRage(this.bot);
+};
+Game.netBroadcastRound = function (act) {
+  if (!Net.connected || !Net.isHost) return;
+  Net.send({ t: 'r', a: act, rd: this.round, s0: this.score[0], s1: this.score[1],
+    map: this.map.id, kit: keyOf(KITS, this.kit), cmb: COMBAT.mode, bo: this.settings.bo });
+};
+Game.netRound = function (m) {
+  if (Net.isHost) return;
+  /* 방장 설정을 그대로 따른다 */
+  for (var i = 0; i < MAPS.length; i++) if (MAPS[i].id === m.map) this.map = MAPS[i];
+  if (KITS[m.kit]) this.kit = KITS[m.kit];
+  COMBAT.mode = m.cmb; this.settings.bo = m.bo;
+  if (this.builtMap !== this.map) {
+    generateArena(20250816 + MAPS.indexOf(this.map) * 977, this.map);
+    Render.worldMesh = buildWorldMesh(); Render.rebuildMap(); this.builtMap = this.map;
+  }
+  if (m.a === 'start') {
+    this.round = m.rd; this.score = [m.s1, m.s0];    // 점수는 시점 반전
+    this.startRound();
+  } else if (m.a === 'end') {
+    this.endMatch();
+  }
+};
+
 /* ---------------- 라운드 진행 ---------------- */
 Game.startMatch = function () {
   if (this.builtMap !== this.map) {
@@ -4040,12 +4406,14 @@ Game.startRound = function () {
   if (this.player && this.player._trail) this.player._trail.clear();
   if (this.bot && this.bot._trail) this.bot._trail.clear();
   if (Render.handTrail) Render.handTrail.clear();
-  var a = SPAWNS[0], b = SPAWNS[1];
+  var seat = this.online ? this.netSeat : 0;
+  var a = SPAWNS[seat], b = SPAWNS[1 - seat];
   this.player.setKit(this.kit); this.bot.setKit(this.kit);
   this.player.reset(a); this.bot.reset(b);
-  this.ai.setDiff(this.diff);
+  if (!this.online) this.ai.setDiff(this.diff);
   this.ai.hist.length = 0; this.ai.critPending = false; this.ai.blockTimer = 0; this.ai.healMode = false;
   this.ai.ultArmed = false; this.ai.ultTimer = 0; this.ai.beamCool = 0;
+  this.bot.netQueue = [];
   this.roundTime = 2000; this.countdown = 72;
   this.state = 'countdown';
   hideUI();
@@ -4070,8 +4438,10 @@ Game.nextRound = function () {
   if (this.score[0] >= need || this.score[1] >= need) { this.endMatch(); return; }
   this.round++;
   this.startRound();
+  this.netBroadcastRound('start');
 };
 Game.endMatch = function () {
+  if (this.online && Net.isHost) this.netBroadcastRound('end');
   this.state = 'matchend';
   this.menuCam.x = this.player.x; this.menuCam.z = this.player.z;
   document.exitPointerLock && document.exitPointerLock();
@@ -4151,7 +4521,8 @@ Game.tick = function () {
   if (this.state === 'countdown') {
     this.countdown--;
     if (this.countdown === 62) this.center('', '', 16, '#fff', 0);
-    this.player.tick(); this.bot.tick();
+    this.player.tick();
+    if (this.online) { this.bot.netTick(); Net.tick(); } else this.bot.tick();
     if (this.countdown === 60) this.center('3', '', 34, '#ff6b6b', 20), this.settings.sound && Snd.count(false);
     if (this.countdown === 40) this.center('2', '', 34, '#ffd93d', 20), this.settings.sound && Snd.count(false);
     if (this.countdown === 20) this.center('1', '', 34, '#7fd6ff', 20), this.settings.sound && Snd.count(false);
@@ -4166,19 +4537,22 @@ Game.tick = function () {
 
   if (this.state === 'play') {
     this.readInput();
-    this.ai.tick(this.player);
+    if (this.online) { this.bot.netTick(); Net.tick(); }
+    else { this.ai.tick(this.player); this.bot.tick(); }
     this.player.tick();
-    this.bot.tick();
     this.roundTime--;
-    if (this.roundTime <= 0) {
+    if (this.roundTime <= 0 && (!this.online || Net.isHost)) {
       var ph = this.player.health + this.player.absorption, bh = this.bot.health + this.bot.absorption;
       this.log('시간 종료! 남은 체력으로 판정', '#ffd93d');
       if (Math.abs(ph - bh) < 0.05) { this.state = 'roundend'; this.endTimer = 70; this.center('무승부', '체력 동일', 20, '#cccccc', 70); }
       else this.endRound(ph > bh ? 0 : 1);
     }
   } else if (this.state === 'roundend') {
-    this.player.tick(); this.bot.tick();
-    if (--this.endTimer <= 0) this.nextRound();
+    this.player.tick();
+    if (this.online) { this.bot.netTick(); Net.tick(); } else this.bot.tick();
+    if (--this.endTimer <= 0) {
+      if (!this.online || Net.isHost) this.nextRound();
+    }
   }
   updateParticles();
 };
@@ -4213,6 +4587,7 @@ function loop(ts) {
   HUD.draw(alpha);
 
   _fpsN++; if (ts - _fpsT > 500) { Game.fps = Math.round(_fpsN * 1000 / (ts - _fpsT)); _fpsN = 0; _fpsT = ts; Render.autoRes(Game.fps); }
+  if (Render.pendingResize) { Render.pendingResize = false; Render.resize(document.getElementById('gl')); HUD.resize(); }
 }
 
 /* =====================================================================
@@ -4279,6 +4654,7 @@ function menuHTML() {
     '<div class="kv"><span>[Q] 검기</span><b>게이지 35 소모 · 원거리 참격 발사</b></div>' +
     '<div class="kv"><span>[F] 격노</span><b>게이지 100 · 8초간 힘II·신속II·공속↑·검기 무료</b></div>' +
     '<button class="mcbtn primary" id="btnStart" style="margin-top:18px">결투 시작</button>' +
+    '<button class="mcbtn" id="btnOnline" style="border-color:#6fd0ff88;color:#bfe9ff">온라인 1 vs 1 (사람과 대전)</button>' +
     '<div class="row"><button class="mcbtn small" id="btnSet">설정</button><button class="mcbtn small" id="btnKeys">조작법</button></div>' +
     '<div class="hint">클릭해서 마우스를 잠그면 시작합니다 · ESC 로 일시정지<br>' +
     '공격 쿨다운·무적시간·넉백·방어구 감소 공식은 <b>바닐라 그대로</b>, 거기에 궁극기가 얹혔습니다</div>' +
@@ -4296,6 +4672,7 @@ function showMenu() {
   bindOpts('cmb', '' + COMBAT.mode, function (v) { COMBAT.mode = parseInt(v, 10); });
   bindOpts('bo', '' + Game.settings.bo, function (v) { Game.settings.bo = parseInt(v, 10); });
   $('#btnStart').onclick = function () { Snd.init(); Snd.resume(); Snd.click(); Game.startMatch(); requestLock(); };
+  $('#btnOnline').onclick = function () { Snd.click(); showOnline(); };
   $('#btnSet').onclick = function () { Snd.click(); showSettings(showMenu); };
   $('#btnKeys').onclick = function () { Snd.click(); showKeys(showMenu); };
 }
@@ -4304,6 +4681,108 @@ function isTouchOnly() {
   catch (e) { return false; }
 }
 function keyOf(obj, val) { for (var k in obj) if (obj[k] === val) return k; return ''; }
+
+/* =====================================================================
+   온라인 대전 화면
+   ===================================================================== */
+var NET_UI = { tab: 'server', srv: '', room: '' };
+function randRoom() { var c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', r = ''; for (var i = 0; i < 4; i++) r += c[Math.floor(Math.random() * c.length)]; return r; }
+
+function showOnline() {
+  Net.reset();
+  var saved = '';
+  try { saved = localStorage.getItem('mcpvp_srv') || ''; } catch (e) { }
+  if (!NET_UI.srv) NET_UI.srv = saved;
+  if (!NET_UI.room) NET_UI.room = randRoom();
+  try { Game.myName = localStorage.getItem('mcpvp_name') || Game.myName; } catch (e) { }
+
+  var h = '<h2>온라인 1 vs 1</h2>' +
+    '<div class="sub" style="margin-bottom:14px">같은 방에 둘이 들어오면 바로 시작됩니다</div>' +
+    '<div class="slider"><span>내 이름</span><input id="nmIn" value="' + Game.myName +
+      '" maxlength="12" style="flex:1;background:#0c0b12;border:1px solid #ffffff22;color:#fff;padding:7px 10px;font:inherit"><span></span></div>' +
+    '<div class="lab">접속 방식</div><div class="grid2">' +
+      '<div class="opt' + (NET_UI.tab === 'server' ? ' sel' : '') + '" data-g="ntab" data-v="server"><div class="t">서버 방코드</div>' +
+        '<div class="d">서버 주소 + 4자리 방코드<br>가장 간편 (서버 필요)</div></div>' +
+      '<div class="opt' + (NET_UI.tab === 'p2p' ? ' sel' : '') + '" data-g="ntab" data-v="p2p"><div class="t">직접 연결 (P2P)</div>' +
+        '<div class="d">서버 없이 코드만 주고받기<br>카톡/디스코드로 붙여넣기</div></div>' +
+    '</div><div id="netBody"></div>' +
+    '<div class="kv" style="margin-top:14px"><span>상태</span><b id="netStat">대기 중</b></div>' +
+    '<button class="mcbtn" id="btnNetBack" style="margin-top:12px">돌아가기</button>';
+  showUI(h, true);
+  $('#nmIn').oninput = function () {
+    Game.myName = this.value.slice(0, 12) || '플레이어';
+    try { localStorage.setItem('mcpvp_name', Game.myName); } catch (e) { }
+  };
+  bindOpts('ntab', NET_UI.tab, function (v) { NET_UI.tab = v; renderNetBody(); });
+  Net.onStatus = function (st) { var el = document.getElementById('netStat'); if (el) el.textContent = st; };
+  $('#btnNetBack').onclick = function () { Snd.click(); Net.reset(); Net.onStatus = null; showMenu(); };
+  renderNetBody();
+}
+function renderNetBody() {
+  var box = document.getElementById('netBody'); if (!box) return;
+  var ta = 'width:100%;height:74px;background:#0c0b12;border:1px solid #ffffff22;color:#8fd6ff;' +
+    'font:11px/1.4 monospace;padding:8px;resize:none;word-break:break-all';
+  if (NET_UI.tab === 'server') {
+    box.innerHTML =
+      '<div class="lab">서버 주소</div>' +
+      '<input id="srvIn" value="' + (NET_UI.srv || '') + '" placeholder="wss://내서버주소/ws" ' +
+        'style="width:100%;background:#0c0b12;border:1px solid #ffffff22;color:#fff;padding:9px 10px;font:inherit">' +
+      '<div class="lab">방 코드</div>' +
+      '<div class="row"><input id="roomIn" value="' + NET_UI.room + '" maxlength="6" ' +
+        'style="flex:2;background:#0c0b12;border:1px solid #ffffff22;color:#ffd93d;padding:9px 10px;font:inherit;' +
+        'letter-spacing:4px;text-align:center;font-weight:800">' +
+        '<button class="mcbtn small" id="btnRnd" style="flex:1;margin:0">새 코드</button></div>' +
+      '<button class="mcbtn primary" id="btnJoinSrv" style="margin-top:12px">방 접속</button>' +
+      '<div class="hint">서버가 없다면 <b>직접 연결(P2P)</b> 탭을 쓰세요.<br>' +
+      '서버 코드는 저장소의 <b>server/</b> 폴더에 들어 있습니다 (Cloudflare Workers / Node).</div>';
+    document.getElementById('btnRnd').onclick = function () {
+      NET_UI.room = randRoom(); document.getElementById('roomIn').value = NET_UI.room; Snd.click();
+    };
+    document.getElementById('btnJoinSrv').onclick = function () {
+      Snd.init(); Snd.resume(); Snd.click();
+      NET_UI.srv = document.getElementById('srvIn').value.trim();
+      NET_UI.room = (document.getElementById('roomIn').value.trim() || 'ROOM').toUpperCase();
+      try { localStorage.setItem('mcpvp_srv', NET_UI.srv); } catch (e) { }
+      if (!NET_UI.srv) { Net.setStatus('서버 주소를 입력하세요'); return; }
+      Net.wsConnect(NET_UI.srv, NET_UI.room, false).catch(function (e) { Net.setStatus(e.message || '접속 실패'); });
+    };
+  } else {
+    box.innerHTML =
+      '<div class="grid2" style="margin-top:12px">' +
+        '<button class="mcbtn small" id="btnHost" style="margin:0">방 만들기 (방장)</button>' +
+        '<button class="mcbtn small" id="btnGuest" style="margin:0">참가하기</button>' +
+      '</div>' +
+      '<div class="lab">1) 내 코드 — 상대에게 보내기</div>' +
+      '<textarea id="myCode" readonly style="' + ta + '" placeholder="위 버튼을 먼저 누르세요"></textarea>' +
+      '<button class="mcbtn small" id="btnCopy">내 코드 복사</button>' +
+      '<div class="lab">2) 상대 코드 — 여기에 붙여넣기</div>' +
+      '<textarea id="peerCode" style="' + ta + '" placeholder="상대가 보낸 코드를 붙여넣으세요"></textarea>' +
+      '<button class="mcbtn primary" id="btnConn" style="margin-top:10px">연결</button>' +
+      '<div class="hint">방장 : 방 만들기 → 내 코드 전달 → 상대 응답코드 붙여넣기 → 연결<br>' +
+      '참가자 : 상대 코드 붙여넣기 → 참가하기 → 생성된 내 코드를 방장에게 전달</div>';
+    var setCode = function (c) { var el = document.getElementById('myCode'); if (el) el.value = c; };
+    document.getElementById('btnHost').onclick = function () {
+      Snd.init(); Snd.resume(); Snd.click();
+      Net.p2pHost().then(setCode).catch(function (e) { Net.setStatus(e.message || '생성 실패'); });
+    };
+    document.getElementById('btnGuest').onclick = function () {
+      Snd.init(); Snd.resume(); Snd.click();
+      var code = document.getElementById('peerCode').value;
+      Net.p2pJoin(code).then(setCode).catch(function (e) { Net.setStatus(e.message || '참가 실패'); });
+    };
+    document.getElementById('btnCopy').onclick = function () {
+      var el = document.getElementById('myCode'); el.select();
+      try { navigator.clipboard.writeText(el.value); Net.setStatus('복사했습니다'); }
+      catch (e) { document.execCommand('copy'); }
+    };
+    document.getElementById('btnConn').onclick = function () {
+      Snd.click();
+      var code = document.getElementById('peerCode').value;
+      if (Net.isHost) Net.p2pAccept(code).catch(function (e) { Net.setStatus(e.message || '연결 실패'); });
+      else Net.setStatus('참가자는 코드를 방장에게 보내면 자동 연결됩니다');
+    };
+  }
+}
 
 function showSettings(back) {
   var S = Game.settings;
@@ -4317,7 +4796,8 @@ function showSettings(back) {
   var toggles = [
     ['bob', '시야 흔들림'], ['dmgNum', '데미지 표시'], ['indicator', '공격 쿨다운 바'],
     ['autoAtk', '자동 공격'], ['invY', '마우스 Y 반전'], ['sound', '효과음'], ['debug', '디버그(F3)'],
-    ['dynRes', '동적 해상도(성능)'], ['shadows', '바닥 그림자']
+    ['dynRes', '동적 해상도(성능)'], ['shadows', '바닥 그림자'],
+    ['hitStop', '타격 히트스톱'], ['lowFx', '저사양 모드(이펙트 감소)']
   ];
   var tg = $('#tg');
   toggles.forEach(function (t) {
@@ -4382,7 +4862,7 @@ function showPause() {
   $('#btnRes').onclick = function () { Snd.click(); resumeGame(); };
   $('#btnSet2').onclick = function () { Snd.click(); showSettings(showPause); };
   $('#btnKeys2').onclick = function () { Snd.click(); showKeys(showPause); };
-  $('#btnQuit').onclick = function () { Snd.click(); Game.paused = false; showMenu(); };
+  $('#btnQuit').onclick = function () { Snd.click(); Game.paused = false; Net.reset(); Game.online = false; showMenu(); };
 }
 function resumeGame() { Game.paused = false; hideUI(); requestLock(); }
 
@@ -4407,12 +4887,17 @@ function showResults() {
   t += '</table>';
   showUI('<div class="win ' + (win ? 'w' : 'l') + '">' + (win ? '승리!' : '패배') + '</div>' +
     '<div class="score"><span class="me">' + Game.score[0] + '</span> : <span class="op">' + Game.score[1] + '</span></div>' +
-    '<div class="sub">' + Game.diff.name + ' · ' + Game.kit.name + ' · ' + (COMBAT.mode === 19 ? '1.9+ 전투' : '1.8 전투') + '</div>' +
+    '<div class="sub">' + (Game.online ? ('vs ' + Net.remoteName + ' (온라인)') : Game.diff.name) + ' · ' + Game.kit.name + ' · ' + (COMBAT.mode === 19 ? '1.9+ 전투' : '1.8 전투') + '</div>' +
     t +
     '<button class="mcbtn primary" id="btnAgain" style="margin-top:16px">다시 하기</button>' +
     '<button class="mcbtn" id="btnMenu2">메인 메뉴</button>', true);
-  $('#btnAgain').onclick = function () { Snd.click(); Game.startMatch(); requestLock(); };
-  $('#btnMenu2').onclick = function () { Snd.click(); showMenu(); };
+  $('#btnAgain').onclick = function () {
+    Snd.click();
+    if (Game.online && !Net.isHost) { Game.log('방장이 다시 시작하기를 기다립니다', '#8a8a8a'); return; }
+    Game.startMatch(); if (Game.online) Game.netBroadcastRound('start');
+    requestLock();
+  };
+  $('#btnMenu2').onclick = function () { Snd.click(); Net.reset(); Game.online = false; showMenu(); };
   if (Game.settings.sound) { if (win) Snd.bell(1.25); else Snd.low(); }
 }
 
