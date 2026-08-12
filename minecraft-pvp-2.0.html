@@ -85,33 +85,86 @@
     flex-direction:column;gap:16px;font-size:14px;color:#6f7488}
   .barwrap{width:300px;height:6px;background:#15131c;border:1px solid #ffffff18}
   .bar{height:100%;width:0;background:linear-gradient(90deg,#ff5c1a,#ffd93d);transition:width .18s;box-shadow:0 0 16px #ff8f1a}
-  /* --- 핵/해커 패널 --- */
-  .fpanel{position:fixed;top:50%;transform:translateY(-50%);width:168px;background:#080610ee;
-    border:1px solid #ffffff18;z-index:20;font-family:inherit;user-select:none}
-  #hackPanel{left:8px;border-color:#ff4a4a44}
-  #hackerPanel{right:8px;border-color:#4aff9c44}
-  .fpanel .fph{padding:8px 10px 6px;font-size:12px;font-weight:800;letter-spacing:2px;display:flex;align-items:center;gap:6px}
-  #hackPanel .fph{background:linear-gradient(90deg,#6a0f0f,#3a0808);color:#ff6a6a;border-bottom:1px solid #ff4a4a33}
-  #hackerPanel .fph{background:linear-gradient(90deg,#0a3a1a,#041408);color:#4aff9c;border-bottom:1px solid #4aff9c33}
-  .fpanel .fph span{opacity:0.5;font-size:10px;margin-left:auto}
-  .fmod{display:flex;align-items:center;padding:5px 10px;cursor:pointer;transition:.1s;font-size:11.5px;gap:6px}
-  .fmod:hover{background:#ffffff0a}
-  .fmod.fon{background:#ff8f1a12}
-  #hackerPanel .fmod.fon{background:#4aff9c12}
-  .fmod .fdot{width:6px;height:6px;border-radius:50%;background:#2a2838;flex-shrink:0;transition:.1s}
-  .fmod.fon .fdot{background:#ff8f1a;box-shadow:0 0 6px #ff8f1a}
-  #hackerPanel .fmod.fon .fdot{background:#4aff9c;box-shadow:0 0 6px #4aff9c}
-  .fmod .flabel{flex:1;color:#8a8aaa}.fmod.fon .flabel{color:#e8e8ee}
-  .fmod .ftag{font-size:9px;color:#4a4a6a;font-weight:700}.fmod.fon .ftag{color:#7dff9b}
-  .fslider{padding:4px 10px 8px}
-  .fslider span{font-size:10px;color:#a0a0c0;display:flex;justify-content:space-between}
-  .fslider input{width:100%;margin-top:3px;accent-color:#ff8f1a}
-  .fdiv{height:1px;background:#ffffff0f;margin:2px 0}
-  .faction{padding:5px 10px;cursor:pointer;font-size:11px;color:#8a8aaa;display:flex;align-items:center;gap:8px;transition:.1s}
-  .faction:hover{background:#ffffff0a;color:#e8e8ee}
-  .faction .fdot{width:6px;height:6px;border-radius:50%;background:#2a2838;flex-shrink:0}
-  .faction.fon .fdot{background:#ff4a4a;box-shadow:0 0 6px #ff4a4a}.faction.fon .flabel{color:#ff9a9a}
-  .fclue{padding:4px 10px 6px;font-size:9px;color:#3a3a5a;text-align:center}
+  /* ===== 핵 클라이언트 창 ===== */
+  .fpanel{position:fixed;z-index:20;font-family:inherit;user-select:none;
+    background:#0a0812f2;border:1px solid #ffffff14;
+    box-shadow:0 18px 50px #000000cc, 0 0 0 1px #00000088;backdrop-filter:blur(3px)}
+  #hackPanel{left:26px;top:50%;transform:translateY(-50%);width:340px}
+  #hackerPanel{right:26px;top:50%;transform:translateY(-50%);width:206px}
+  /* 타이틀바 */
+  .fbar{display:flex;align-items:center;gap:8px;padding:9px 11px;cursor:grab;
+    background:linear-gradient(160deg,#1a0f1e,#0c0812);border-bottom:1px solid #ffffff10}
+  .fbar:active{cursor:grabbing}
+  .fbar .flogo{width:16px;height:16px;display:grid;place-items:center;font-size:11px;
+    background:linear-gradient(135deg,#ff2d55,#7a0f2a);color:#fff;font-weight:800}
+  #hackerPanel .fbar .flogo{background:linear-gradient(135deg,#12d67a,#064a2a)}
+  .fbar .fname{font-size:13px;font-weight:800;letter-spacing:2.5px;color:#fff}
+  .fbar .fver{font-size:9px;color:#ff2d55;font-weight:700;letter-spacing:1px}
+  #hackerPanel .fbar .fver{color:#12d67a}
+  .fbar .fx{margin-left:auto;font-size:11px;color:#55506a;cursor:pointer;padding:0 3px}
+  .fbar .fx:hover{color:#ff5c7a}
+  /* 카테고리 탭 */
+  .ftabs{display:flex;background:#07050e;border-bottom:1px solid #ffffff0d}
+  .ftab{flex:1;text-align:center;padding:7px 2px 6px;font-size:10.5px;font-weight:700;color:#4d4a63;
+    cursor:pointer;border-bottom:2px solid transparent;transition:.12s;white-space:nowrap}
+  .ftab:hover{color:#9a95b5;background:#ffffff06}
+  .ftab.fsel{color:#fff;border-bottom-color:#ff2d55;background:#ff2d5510}
+  /* 검색 */
+  .fsearch{padding:7px 10px;border-bottom:1px solid #ffffff0a}
+  .fsearch input{width:100%;background:#05040a;border:1px solid #ffffff12;color:#d8d5e6;
+    font-family:inherit;font-size:11px;padding:5px 7px;outline:none}
+  .fsearch input:focus{border-color:#ff2d5566}
+  .fsearch input::placeholder{color:#3f3b52}
+  /* 모듈 리스트 */
+  .flist{max-height:min(52vh,430px);overflow-y:auto;overscroll-behavior:contain}
+  .flist::-webkit-scrollbar{width:5px}
+  .flist::-webkit-scrollbar-thumb{background:#2a2438}
+  .flist::-webkit-scrollbar-track{background:#07050e}
+  .fmod{display:flex;align-items:center;gap:8px;padding:7px 11px;cursor:pointer;
+    font-size:12px;border-left:2px solid transparent;transition:.1s}
+  .fmod:hover{background:#ffffff09}
+  .fmod.fon{background:linear-gradient(90deg,#ff2d5514,transparent);border-left-color:#ff2d55}
+  #hackerPanel .fmod.fon{background:linear-gradient(90deg,#12d67a14,transparent);border-left-color:#12d67a}
+  .fmod .fdot{width:7px;height:7px;flex-shrink:0;background:#241f33;transition:.12s;border-radius:1px}
+  .fmod.fon .fdot{background:#ff2d55;box-shadow:0 0 7px #ff2d55}
+  #hackerPanel .fmod.fon .fdot{background:#12d67a;box-shadow:0 0 7px #12d67a}
+  .fmod .flabel{flex:1;color:#7d788f;font-weight:700;min-width:0}
+  .fmod.fon .flabel{color:#fff}
+  .fmod .fkey{font-size:9px;color:#3f3b52;font-weight:700;letter-spacing:.5px}
+  .fmod.fon .fkey{color:#ff8fa5}
+  .fmod .farrow{font-size:8px;color:#3f3b52;width:9px;text-align:center;transition:.12s}
+  .fmod.fopen .farrow{transform:rotate(90deg);color:#ff2d55}
+  .fdesc{padding:0 11px 7px 30px;font-size:10px;color:#5b5670;line-height:1.55}
+  /* 모듈 설정 */
+  .fset{padding:2px 11px 9px 30px;background:#05040a80;border-left:2px solid #ff2d5544}
+  .fsrow{margin-bottom:7px}
+  .fsrow:last-child{margin-bottom:0}
+  .fsrow .fslab{display:flex;justify-content:space-between;font-size:10px;color:#8d88a3;
+    font-weight:700;margin-bottom:3px}
+  .fsrow .fsval{color:#ff2d55}
+  .fsrow input[type=range]{width:100%;height:3px;-webkit-appearance:none;appearance:none;
+    background:#241f33;outline:none;cursor:pointer}
+  .fsrow input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+    width:10px;height:10px;background:#ff2d55;cursor:pointer;box-shadow:0 0 6px #ff2d5599}
+  .fsrow input[type=range]::-moz-range-thumb{width:10px;height:10px;border:0;
+    background:#ff2d55;cursor:pointer}
+  /* 하단바 */
+  .ffoot{display:flex;align-items:center;gap:6px;padding:6px 11px;font-size:9px;color:#3f3b52;
+    background:#07050e;border-top:1px solid #ffffff0a}
+  .ffoot b{color:#6d6885}
+  .ffoot .fcount{margin-left:auto;color:#ff2d55;font-weight:800}
+  #hackerPanel .ffoot .fcount{color:#12d67a}
+  .fempty{padding:18px 11px;text-align:center;font-size:10.5px;color:#3f3b52}
+  /* 해커 전용 */
+  .faction{padding:6px 11px;cursor:pointer;font-size:11.5px;color:#7d788f;display:flex;
+    align-items:center;gap:8px;transition:.1s;border-left:2px solid transparent;font-weight:700}
+  .faction:hover{background:#ffffff09}
+  .faction .fdot{width:7px;height:7px;flex-shrink:0;background:#241f33;border-radius:1px}
+  .faction.fon{background:linear-gradient(90deg,#ff2d5514,transparent);border-left-color:#ff2d55}
+  .faction.fon .fdot{background:#ff2d55;box-shadow:0 0 7px #ff2d55}
+  .faction.fon .flabel{color:#ff9ab0}
+  .fdiv{height:1px;background:#ffffff0d;margin:3px 0}
+  .fclue{padding:5px 11px 7px;font-size:9px;color:#3a3550;text-align:center;line-height:1.6}
   /* 해커 정보 */
   .hkinfo{padding:8px 10px 4px}
   .hkrow{display:flex;justify-content:space-between;font-size:10.5px;padding:2px 0;color:#7a7a9a}
@@ -129,6 +182,9 @@
   .modrow .md{font-size:11px;color:#7a7f92;grid-column:2;line-height:1.5}
   .modrow kbd{background:#26232f;border:1px solid #000;box-shadow:0 2px 0 #0a090d;padding:1px 6px;
     font-family:inherit;font-size:11px;color:#ffd93d;margin-left:6px;font-weight:700}
+  .modset{padding:6px 12px 8px 40px;margin:-4px 0 5px;background:#ffffff05;border-left:2px solid #ff8f1a44}
+  .modset .slider{display:flex;align-items:center;gap:9px;color:#8d88a3}
+  .modset .slider input{flex:1;accent-color:#ff8f1a}
 </style>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
@@ -771,20 +827,48 @@ function makeSprite(fn) {
   });
   return d;
 }
+/* 진짜 검 실루엣 : 뾰족한 칼끝 → 4px 테이퍼 날(베벨 음영)
+   → 황동 십자 가드 → 가죽 감은 그립 → 황동 폼멜 */
 function swordSprite(lo, mid, hi) {
-  var L = hx(hi), M = hx(mid), Dk = hx(lo), H1 = hx(0x9c6b3a), H2 = hx(0x6b4523);
+  var A = hx(hi), Hc = hx(mid), Mc = hx(lo);
+  function mixc(c1, c2, t) { return [c1[0] + (c2[0] - c1[0]) * t, c1[1] + (c2[1] - c1[1]) * t, c1[2] + (c2[2] - c1[2]) * t]; }
+  function mul(c, k) { return [c[0] * k, c[1] * k, c[2] * k]; }
+  var TIP = mixc(A, [255, 255, 255], 0.55);   // 칼끝 반사광
+  var SP = A;                                  // 날 등 (하이라이트)
+  var FU = Hc;                                 // 날 상단
+  var BD = mul(Mc, 0.92);                      // 날 본체
+  var EG = mul(Mc, 0.62);                      // 날선 그림자
+  var G1 = hx(0xf0cf7a), G2 = hx(0xc79a3e), G3 = hx(0x8a6522), G4 = hx(0x5c4315);  // 황동 가드
+  var W1 = hx(0x8d5a30), W2 = hx(0x6b421f), W3 = hx(0x452a13);                     // 가죽 그립
+  var MAP = { 'A': TIP, '#': SP, 'H': FU, 'M': BD, '%': EG,
+              'G': G1, 'g': G2, 'd': G3, 'D': G4, 'w': W1, 'x': W2, 'v': W3 };
+  /* 좌하단 손잡이 → 우상단 칼끝 */
+  var ART = [
+    '...............A',
+    '..............#H',
+    '.............#H%',
+    '............#H%.',
+    '...........#HM%.',
+    '..........#HM%..',
+    '.........#HM%...',
+    '....gd..#HM%....',
+    '.....Gg#HM%.....',
+    '......GgM%......',
+    '.....wxgd.......',
+    '....wx..dD......',
+    '...wv...........',
+    '..wv............',
+    '.Gg.............',
+    'gd..............'
+  ];
   return makeSprite(function (s) {
-    for (var y = 0; y < 16; y++) for (var x = 0; x < 16; x++) {
-      var sum = x + y, dif = x - y;
-      if ((sum === 13 || sum === 14) && dif >= -7) s(x, y, sum === 13 ? L : M);
-      else if ((sum === 13 || sum === 14) && dif < -7 && dif >= -13) s(x, y, sum === 13 ? H1 : H2);
+    for (var y = 0; y < 16; y++) {
+      var row = ART[y];
+      for (var x = 0; x < 16; x++) {
+        var ch = row.charAt(x);
+        if (ch !== '.' && MAP[ch]) s(x, y, MAP[ch]);
+      }
     }
-    s(15, 0, L); s(14, 0, L);
-    // 십자 가드
-    var g = [[1, 8], [2, 9], [2, 8], [3, 9], [4, 11], [5, 12], [5, 11], [6, 12]];
-    for (var i = 0; i < g.length; i++) { var p = g[i]; if (p[0] + p[1] !== 13 && p[0] + p[1] !== 14) s(p[0], p[1], (i % 2 === 0) ? M : Dk); }
-    // 손잡이 끝
-    s(0, 14, H2); s(1, 15, H2);
   });
 }
 function buildItems() {
@@ -855,12 +939,12 @@ function buildItems() {
    ===================================================================== */
 var VS = [
   'attribute vec3 aPos;attribute vec2 aUV;attribute float aLight;attribute vec3 aCol;',
-  'uniform mat4 uProj,uView,uModel;uniform float uFogNear,uFogFar;',
+  'uniform mat4 uProj,uView,uModel;uniform float uFogNear,uFogFar,uBright;',
   'varying vec2 vUV;varying vec3 vCol;varying float vFog;',
   'void main(){',
   ' vec4 ep=uView*uModel*vec4(aPos,1.0);',
   ' gl_Position=uProj*ep;',
-  ' vUV=aUV; vCol=aCol*aLight;',
+  ' vUV=aUV; vCol=aCol*max(aLight,uBright);',
   ' vFog=clamp((-ep.z-uFogNear)/(uFogFar-uFogNear),0.0,1.0);',
   '}'
 ].join('\n');
@@ -896,13 +980,14 @@ function initGL(canvas) {
   prog = gl.createProgram(); gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { console.error(gl.getProgramInfoLog(prog)); return false; }
   gl.useProgram(prog);
-  ['uProj', 'uView', 'uModel', 'uTex', 'uTint', 'uFogColor', 'uFogNear', 'uFogFar', 'uAlpha', 'uCut'].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
+  ['uProj', 'uView', 'uModel', 'uTex', 'uTint', 'uFogColor', 'uFogNear', 'uFogFar', 'uAlpha', 'uCut', 'uBright'].forEach(function (n) { U[n] = gl.getUniformLocation(prog, n); });
   ['aPos', 'aUV', 'aLight', 'aCol'].forEach(function (n) { A[n] = gl.getAttribLocation(prog, n); });
   gl.enableVertexAttribArray(A.aPos); gl.enableVertexAttribArray(A.aUV);
   gl.enableVertexAttribArray(A.aLight); gl.enableVertexAttribArray(A.aCol);
   gl.enable(gl.DEPTH_TEST); gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   gl.uniform1i(U.uTex, 0); gl.uniform1f(U.uAlpha, 1); gl.uniform1f(U.uCut, 0.35);
+  gl.uniform1f(U.uBright, 0);
   gl.uniform4f(U.uTint, 0, 0, 0, 0);
   return true;
 }
@@ -1803,7 +1888,7 @@ function Entity(o) {
   /* --- 2.0 POWER --- */
   this.ult = 0; this.rageTicks = 0; this.beamCool = 0; this.auraT = 0;
   /* --- 모드 --- */
-  this.anchorPos = null; this.anchorCharges = 0;
+  this.anchorPos = null; this.anchorCharges = 0; this._regenT = 0; this._abT = 0;
 }
 
 Entity.prototype.bb = function () {
@@ -1815,6 +1900,8 @@ Entity.prototype.getSpeed = function () {
   var s = 0.1;
   if (this.sprinting) s *= 1.3;
   if (this.rageTicks > 0) s *= 1.40;          // 격노 : 신속 II
+  var M = modsFor(this);
+  if (M && M.speed) s *= M.speedMult;
   return s;
 };
 Entity.prototype.isRaging = function () { return this.rageTicks > 0; };
@@ -1846,7 +1933,7 @@ Entity.prototype.reset = function (sp) {
   this.onGround = true; this.slot = 0; this.stats.combo = 0;
   this.moveForward = 0; this.moveStrafe = 0; this.jumping = false; this.limbSwingAmount = 0;
   this.distWalked = 0; this.prevDistWalked = 0; this.stepDist = 0; this.collidedH = false;
-  this.anchorPos = null;
+  this.anchorPos = null; this._regenT = 0; this._abT = 0;
   if (typeof Game !== 'undefined' && Game.bot === this)
     this.anchorCharges = (typeof BotMods !== 'undefined' && BotMods.on && BotMods.anchor) ? 4 : 0;
   else
@@ -1854,6 +1941,8 @@ Entity.prototype.reset = function (sp) {
 };
 
 Entity.prototype.addExhaustion = function (a) {
+  var _Mf = modsFor(this);
+  if (_Mf && _Mf.infFood) { this.food = 20; this.saturation = 5; this.exhaustion = 0; return; }
   this.exhaustion += a;
   while (this.exhaustion > 4) {
     this.exhaustion -= 4;
@@ -1885,6 +1974,13 @@ Entity.prototype.tick = function () {
   this.prevDistWalked = this.distWalked;
 
   if (this.dead) { this.deathTicks++; this.vx *= 0.7; this.vz *= 0.7; this.applyPhysics(0, 0); return; }
+
+  /* ---- 모드 : Step / Regen ---- */
+  var _Mt = modsFor(this);
+  this.stepHeight = (_Mt && _Mt.step) ? _Mt.stepHeight : 0.6;
+  if (_Mt && _Mt.regen && this.health > 0 && this.health < this.maxHealth) {
+    if (++this._regenT >= Math.max(1, Math.round(_Mt.regenRate))) { this._regenT = 0; this.heal(1); }
+  } else this._regenT = 0;
 
   if (this.hurtTime > 0) this.hurtTime--;
   if (this.hurtResist > 0) this.hurtResist--;
@@ -1926,7 +2022,7 @@ Entity.prototype.tick = function () {
 
   /* 먹기 */
   if (this.eating) {
-    this.eatTicks++;
+    this.eatTicks += (_Mt && _Mt.fastEat) ? 8 : 1;
     if (this.eatTicks % 4 === 0) {
       Snd.eat();
       var lv = this.lookVec();
@@ -1940,7 +2036,10 @@ Entity.prototype.tick = function () {
   /* 이동 */
   var strafe = this.moveStrafe, fwd = this.moveForward;
   if (this.sneaking) { strafe *= 0.3; fwd *= 0.3; }
-  if (this.eating || (this.blocking && COMBAT.mode === 19)) { strafe *= 0.2; fwd *= 0.2; }
+  if (this.eating || (this.blocking && COMBAT.mode === 19)) {
+    var _Mn = modsFor(this);
+    if (!(_Mn && _Mn.noSlow)) { strafe *= 0.2; fwd *= 0.2; }
+  }
   if (this.blocking && COMBAT.mode === 18) { strafe *= 0.35; fwd *= 0.35; }
 
   /* 스프린트 유지 조건 */
@@ -1949,7 +2048,8 @@ Entity.prototype.tick = function () {
 
   /* 점프 */
   if (this.jumping && this.onGround && this.jumpDelay === 0) {
-    this.vy = 0.42;
+    var _Mj = modsFor(this);
+    this.vy = 0.42 * ((_Mj && _Mj.highJump) ? _Mj.jumpMult : 1);
     if (this.sprinting) {
       var f = this.yaw * DEG;
       this.vx -= Math.sin(f) * 0.2; this.vz += Math.cos(f) * 0.2;
@@ -2020,7 +2120,7 @@ Entity.prototype.knockBack = function (fromX, fromZ, strength) {
   var f = Math.sqrt(dx * dx + dz * dz);
   if (f < 1e-4) { dx = (Math.random() - Math.random()) * 0.01; dz = (Math.random() - Math.random()) * 0.01; f = Math.sqrt(dx * dx + dz * dz); }
   var _Mk = modsFor(this);
-  var kbScale = (_Mk && _Mk.antiKB) ? 0.05 : 1;
+  var kbScale = (_Mk && _Mk.antiKB) ? (1 - clamp(_Mk.kbReduce, 0, 100) / 100) : 1;
   this.vx /= 2; this.vy /= 2; this.vz /= 2;
   this.vx -= dx / f * strength * kbScale;
   this.vy += strength * kbScale;
@@ -2102,7 +2202,8 @@ Entity.prototype.hurt = function (amount, attacker, opts) {
   if (flag && attacker) {
     var dx = attacker.x - this.x, dz = attacker.z - this.z;
     this.attackedAtYaw = Math.atan2(dz, dx) / DEG - this.yaw;
-    this.knockBack(attacker.x, attacker.z, 0.4);
+    var _Msk = modsFor(attacker);
+    this.knockBack(attacker.x, attacker.z, 0.4 * ((_Msk && _Msk.superKB) ? _Msk.kbMult : 1));
   }
   if (this.health <= 0) this.die(attacker, opts.cause || 'melee');
   return applied;
@@ -2178,13 +2279,13 @@ Entity.prototype.attemptAttack = function (target) {
   this.swingArm();
   this.stats.swings++;
   var _M = modsFor(this);
-  var reach = (_M && _M.reach) ? 5.5 : 3.0;
+  var reach = (_M && _M.reach) ? _M.reachDist : 3.0;
   var hit = (target && !target.dead) ? rayHitsEntity(this, target, reach) : -1;
   /* 킬오라 : 조준하지 않아도 사거리 안이면 명중 처리 */
   if (hit < 0 && _M && _M.killAura && target && !target.dead) {
     var _kx = target.x - this.x, _ky = (target.y + 0.9) - this.eyeY(), _kz = target.z - this.z;
     var _kd = Math.sqrt(_kx * _kx + _ky * _ky + _kz * _kz);
-    if (_kd <= reach) hit = _kd;
+    if (_kd <= Math.max(reach, _M.auraRange)) hit = _kd;
   }
   var cooled = this.attackStrength(0.5);
   if (hit < 0) {
@@ -2202,7 +2303,7 @@ Entity.prototype.performAttack = function (target, cooled) {
   var k = this.kit;
   var dmg = k.dmg + ((k.str || 0) + (this.rageTicks > 0 ? 2 : 0)) * 3;   // 힘 물약 : 레벨당 +3
   var _Md = modsFor(this);
-  if (_Md && _Md.dmgMult !== 1) dmg *= _Md.dmgMult;
+  if (_Md && _Md.damage && _Md.dmgMult !== 1) dmg *= _Md.dmgMult;
   var ench = k.sharp > 0 ? (0.5 * k.sharp + 0.5) : 0;
   var full = COMBAT.mode === 18 || cooled > 0.9;
 
@@ -2214,8 +2315,10 @@ Entity.prototype.performAttack = function (target, cooled) {
 
   var crit = full && this.fallDistance > 0 && !this.onGround;
   if (COMBAT.mode === 19 && this.sprinting) crit = false;
+  if (_Md && _Md.criticals && full) crit = true;      // Criticals : 항상 크리
   if (crit) dmg *= 1.5;
   dmg += ench;
+  if (_Md && _Md.superKB) { kb += Math.max(0, _Md.kbMult - 1) * 2; }
 
   var moved = this.distWalked - this.prevDistWalked;
   var sweep = COMBAT.mode === 19 && full && !crit && !sprintKb && this.onGround && moved < this.getSpeed();
@@ -2654,6 +2757,14 @@ BotAI.prototype.tick = function (target) {
       e.anchorPos = { x: e.x, y: e.y, z: e.z };
       Game.log(e.name + ' 님이 리스폰 정박기를 설치했습니다', '#ff8f6a');
     }
+    /* AutoGapple : 기준 체력 아래로 떨어지면 무조건 먹는다 */
+    if (mods.autoGapple && !e.eating && e.gapples > 0 && e.regenTicks < 20 &&
+        (e.health + e.absorption) <= mods.gappleHp) { e.slot = 1; e.startUse(); this.healMode = true; }
+    /* AutoUlt : 지연 없이 즉시 발동 */
+    if (mods.autoUlt && !e.eating && !target.dead) {
+      if (e.canRage()) { e.castRage(); this.ultArmed = false; }
+      else if (e.ult >= BEAM_COST && e.beamCool === 0 && realDist < 20) { e.castBeam(); this.beamCool = 4; }
+    }
   }
 
   /* ---------- 2.0 : 격노 / 검기 ---------- */
@@ -2676,9 +2787,9 @@ BotAI.prototype.tick = function (target) {
   }
 
   /* ---------- 공격 ---------- */
-  var botReach = (mods && mods.reach) ? 5.5 : d.reach;
+  var botReach = (mods && mods.reach) ? mods.reachDist : d.reach;
   var reachOk = (mods && mods.killAura)
-    ? (realDist < botReach)                       // 킬오라 : 조준 불필요
+    ? (realDist < Math.max(botReach, mods.auraRange))   // 킬오라 : 조준 불필요
     : (rayHitsEntity(e, target, botReach) >= 0);
   var strength = e.attackStrength(0.5);
   var canAtk;
@@ -2823,6 +2934,8 @@ Render.setupCamera = function (p, alpha) {
   }
   /* 피격 흔들림 */
   var ht = p.hurtTime - alpha;
+  var _hcM = modsFor(p);
+  if (_hcM && _hcM.noHurtCam) ht = 0;
   if (ht > 0 && p.maxHurtTime > 0) {
     var f = ht / p.maxHurtTime; f = Math.sin(f * f * f * f * Math.PI);
     roll += -f * 14 * Math.cos(p.attackedAtYaw * DEG);
@@ -2899,6 +3012,8 @@ Render.frame = function (alpha) {
   gl.uniformMatrix4fv(U.uView, false, this.view);
   gl.uniform4f(U.uTint, 0, 0, 0, 0);
   gl.uniform1f(U.uAlpha, 1);
+  var _fbM = modsFor(Game.player);
+  gl.uniform1f(U.uBright, (_fbM && _fbM.fullbright) ? 1.0 : 0);
   gl.uniform1f(U.uCut, 0.35);
   gl.activeTexture(gl.TEXTURE0);
 
@@ -2959,6 +3074,18 @@ Render.frame = function (alpha) {
     var e = Game.entities[i];
     if (e === Game.player && !this.thirdPerson) continue;
     this.drawEntity(e, alpha);
+  }
+
+  /* ---- Chams : 벽 너머로 상대 실루엣을 한 번 더 그린다 ---- */
+  var _cM = modsFor(Game.player);
+  if (_cM && _cM.chams && Game.bot && !Game.bot.dead && Game.state === 'play') {
+    gl.disable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND); gl.uniform1f(U.uAlpha, 0.55);
+    var _cp = Math.sin(Game.now * 0.006) * 0.12;
+    gl.uniform4f(U.uTint, 1, 0.25, 0.85, 0.72 + _cp);
+    this.drawEntity(Game.bot, alpha);
+    gl.uniform4f(U.uTint, 0, 0, 0, 0); gl.uniform1f(U.uAlpha, 1);
+    gl.disable(gl.BLEND); gl.enable(gl.DEPTH_TEST);
   }
 
   /* ---- 검기 / 진주 / 충격파 / 파티클 ---- */
@@ -3497,7 +3624,8 @@ HUD.draw = function (alpha) {
   if (Game.state === 'menu' || Game.state === 'matchend') return;
 
   /* ---- 피격 비네트 (그라디언트는 캐시) ---- */
-  if (p.hurtTime > 0 && !p.dead) {
+  var _nhM = modsFor(p), _noHurt = !!(_nhM && _nhM.noHurtCam);
+  if (p.hurtTime > 0 && !p.dead && !_noHurt) {
     c.globalAlpha = (p.hurtTime / 10) * 0.42;
     c.fillStyle = this.vig('rgba(150,0,0,'); c.fillRect(0, 0, W, H); c.globalAlpha = 1;
   }
@@ -3538,47 +3666,8 @@ HUD.draw = function (alpha) {
     txt(c, (Net.connected ? '● 온라인' : '○ 끊김') + '  ' + pg + 'ms  ' + (Net.isHost ? '방장' : '참가자'),
       8 * S, 10 * S, 5.2 * S, Net.connected ? pc : '#ff5c5c', 'left');
   }
-  /* ---- 핵/해커 상태 표시 ---- */
-  var _hsy = Game.online ? 22 * S : 10 * S;
-  if (Hacks.on && RoomCfg.allowHack) {
-    var _htags = [];
-    if (Hacks.fly) _htags.push('FLY');
-    if (Hacks.speed) _htags.push('SPEED');
-    if (Hacks.killAura) _htags.push('KILLAURA');
-    if (Hacks.reach) _htags.push('REACH');
-    if (Hacks.antiKB) _htags.push('ANTIKB');
-    if (Hacks.noFall) _htags.push('NOFALL');
-    if (Hacks.autoAtk) _htags.push('AUTO');
-    txt(c, '⚠ HACK [Z]: ' + (_htags.length ? _htags.join(' ') : '비활성'), 8 * S, _hsy, 5.2 * S, '#ff6a6a', 'left');
-    _hsy += 12 * S;
-  } else if (RoomCfg.allowHack) {
-    txt(c, '[Z] 핵쓰기', 8 * S, _hsy, 5 * S, '#4a3a3a', 'left');
-    _hsy += 12 * S;
-  }
-  if (Hacker.on && RoomCfg.allowHacker) {
-    var _hrtags = [];
-    if (Hacker.drainHP) _hrtags.push('DRAIN');
-    if (Hacker.confuse) _hrtags.push('CONFUSE');
-    if (Hacker.forceSwitch) _hrtags.push('SWITCH');
-    txt(c, '👁 HACKER [X]: ' + (_hrtags.length ? _hrtags.join(' ') : '비활성'), 8 * S, _hsy, 5.2 * S, '#4aff9c', 'left');
-    _hsy += 12 * S;
-  } else if (RoomCfg.allowHacker) {
-    txt(c, '[X] 해커', 8 * S, _hsy, 5 * S, '#1a3a1a', 'left');
-    _hsy += 12 * S;
-  }
-  /* AI 에게 끼워준 핵 */
-  if (!Game.online && BotMods.on) {
-    var _bg = [];
-    if (BotMods.fly) _bg.push('FLY');
-    if (BotMods.speed) _bg.push('SPEED');
-    if (BotMods.killAura) _bg.push('KILLAURA');
-    if (BotMods.reach) _bg.push('REACH');
-    if (BotMods.antiKB) _bg.push('ANTIKB');
-    if (BotMods.noFall) _bg.push('NOFALL');
-    if (BotMods.anchor) _bg.push('ANCHOR');
-    if (BotMods.dmgMult !== 1) _bg.push('DMG' + BotMods.dmgMult.toFixed(1) + 'x');
-    txt(c, '☠ AI HACK: ' + (_bg.length ? _bg.join(' ') : '없음'), 8 * S, _hsy, 5.2 * S, '#ff8f1a', 'left');
-  }
+  /* ---- 핵 클라이언트 오버레이 ---- */
+  this.drawClientOverlay();
 
   /* ---- 2.0 : 궁극 게이지 / 콤보 / 콜아웃 ---- */
   this.drawUlt();
@@ -3888,6 +3977,166 @@ HUD.drawFlash = function () {
 };
 
 /* 궁극 게이지 */
+/* =====================================================================
+   핵 클라이언트 오버레이 : 워터마크 / ArrayList / ESP / 트레이서 / 타겟HUD
+   ===================================================================== */
+var CLIENT_NAME = 'RAVEN';
+/* 활성 모듈 이름 목록 (ArrayList 용) */
+function activeModuleNames(set) {
+  var out = [];
+  for (var i = 0; i < HACK_MODULES.length; i++) {
+    var m = HACK_MODULES[i];
+    if (m.k === 'arrayList' || m.k === 'watermark') continue;
+    if (!set[m.k]) continue;
+    var lbl = m.n;
+    if (m.s && m.s.length) {
+      var v = set[m.s[0].k];
+      lbl += ' §' + (m.s[0].st < 1 ? (+v).toFixed(1) : Math.round(v)) + (m.s[0].u || '');
+    }
+    out.push(lbl);
+  }
+  return out;
+}
+/* 무지개 그라디언트 색 (index 기준) */
+function railColor(i, t) {
+  var h = ((i * 26 + t * 0.06) % 360) / 360;
+  var f = function (n) { var k = (n + h * 6) % 6; return Math.round(255 * clamp(Math.min(k, 4 - k, 1), 0, 1) * 0.75 + 64); };
+  return 'rgb(' + f(5) + ',' + f(3) + ',' + f(1) + ')';
+}
+
+HUD.drawClientOverlay = function () {
+  var c = this.ctx, W = this.W, H = this.H, S = this.S;
+  var M = modsFor(Game.player);
+  var t = Game.now || 0;
+
+  /* ---------- 워터마크 (좌상단) ---------- */
+  var wy = Game.online ? 22 * S : 10 * S;
+  if (M && M.watermark) {
+    var fps = Game.fps || 0;
+    c.save();
+    var wtxt = CLIENT_NAME + ' 2.0';
+    c.font = '800 ' + (7 * S) + 'px "Malgun Gothic",system-ui,sans-serif';
+    var ww = c.measureText(wtxt).width;
+    c.fillStyle = 'rgba(8,6,16,0.72)'; c.fillRect(6 * S, wy - 7 * S, ww + 10 * S, 11 * S);
+    c.fillStyle = '#ff2d55'; c.fillRect(6 * S, wy - 7 * S, 1.6 * S, 11 * S);
+    c.restore();
+    txt(c, wtxt, 10 * S, wy + 1.5 * S, 7 * S, '#ffffff', 'left');
+    txt(c, fps + ' FPS  |  ' + (Game.online ? Net.ping + 'ms' : keyOf(DIFFS, Game.diff)),
+      10 * S + c.measureText(wtxt).width + 4 * S, wy + 1.2 * S, 5 * S, '#ff2d55', 'left');
+    wy += 15 * S;
+  } else if (RoomCfg.allowHack) {
+    txt(c, '[Z] 핵쓰기  [X] 해커', 8 * S, wy, 5 * S, '#4a3a4a', 'left');
+    wy += 11 * S;
+  }
+
+  /* ---------- ArrayList (우상단) ---------- */
+  if (M && M.arrayList) {
+    var names = activeModuleNames(Hacks);
+    c.font = '800 ' + (6.2 * S) + 'px "Malgun Gothic",system-ui,sans-serif';
+    /* 실제 클라이언트처럼 글자 폭 내림차순 정렬 */
+    names.sort(function (a, b) { return c.measureText(b).width - c.measureText(a).width; });
+    var ay = 8 * S;
+    for (var i = 0; i < names.length; i++) {
+      var nm = names[i].replace('§', ' ');
+      var tw = c.measureText(nm).width;
+      c.fillStyle = 'rgba(8,6,16,0.62)';
+      c.fillRect(W - tw - 9 * S, ay, tw + 9 * S, 9.4 * S);
+      c.fillStyle = railColor(i, t);
+      c.fillRect(W - 1.6 * S, ay, 1.6 * S, 9.4 * S);
+      txt(c, nm, W - 4 * S, ay + 7 * S, 6.2 * S, railColor(i, t), 'right');
+      ay += 9.4 * S;
+    }
+  }
+
+  /* ---------- AI 에게 끼워준 핵 (좌상단, 워터마크 아래) ---------- */
+  if (!Game.online && BotMods.on) {
+    var bn = activeModuleNames(BotMods);
+    txt(c, '☠ AI: ' + (bn.length ? bn.join(' ').replace(/§/g, '') : '없음'),
+      8 * S, wy + 4 * S, 5.4 * S, '#ff8f1a', 'left');
+    wy += 11 * S;
+  }
+  if (Hacker.on && RoomCfg.allowHacker) {
+    var hrt = [];
+    if (Hacker.drainHP) hrt.push('DRAIN');
+    if (Hacker.confuse) hrt.push('CONFUSE');
+    if (Hacker.forceSwitch) hrt.push('SWITCH');
+    txt(c, '👁 HACKER: ' + (hrt.length ? hrt.join(' ') : '대기'), 8 * S, wy + 4 * S, 5.4 * S, '#4aff9c', 'left');
+  }
+
+  /* ---------- 월드 시각 모드 ---------- */
+  var o = Game.bot;
+  if (!M || !o || o.dead || Game.state !== 'play') return;
+  var dist = Math.sqrt((o.x - Game.player.x) * (o.x - Game.player.x) +
+                       (o.z - Game.player.z) * (o.z - Game.player.z));
+
+  /* ESP 박스 : 히트박스 8 꼭짓점을 투영해 화면 AABB 를 구한다 */
+  var box = null;
+  if (M.esp || M.nametags || M.tracers) {
+    var hw = o.width / 2, minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9, ok = false;
+    for (var xi = 0; xi < 2; xi++) for (var yi = 0; yi < 2; yi++) for (var zi = 0; zi < 2; zi++) {
+      var pr = Render.project(o.x + (xi ? hw : -hw), o.y + (yi ? o.height : 0), o.z + (zi ? hw : -hw));
+      if (!pr) continue;
+      ok = true;
+      if (pr.x < minX) minX = pr.x; if (pr.x > maxX) maxX = pr.x;
+      if (pr.y < minY) minY = pr.y; if (pr.y > maxY) maxY = pr.y;
+    }
+    if (ok) box = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  }
+
+  if (M.esp && box) {
+    var ec = o.health > 12 ? '#4affa0' : (o.health > 6 ? '#ffd93d' : '#ff4a4a');
+    c.save();
+    c.lineWidth = Math.max(1, S * 0.5);
+    /* 모서리만 그리는 코너 박스 (실제 클라이언트 스타일) */
+    var cl = Math.min(box.w, box.h) * 0.28;
+    c.strokeStyle = 'rgba(0,0,0,0.8)'; c.lineWidth = Math.max(2, S * 0.9);
+    for (var pass = 0; pass < 2; pass++) {
+      if (pass === 1) { c.strokeStyle = ec; c.lineWidth = Math.max(1, S * 0.45); }
+      c.beginPath();
+      c.moveTo(box.x, box.y + cl); c.lineTo(box.x, box.y); c.lineTo(box.x + cl, box.y);
+      c.moveTo(box.x + box.w - cl, box.y); c.lineTo(box.x + box.w, box.y); c.lineTo(box.x + box.w, box.y + cl);
+      c.moveTo(box.x, box.y + box.h - cl); c.lineTo(box.x, box.y + box.h); c.lineTo(box.x + cl, box.y + box.h);
+      c.moveTo(box.x + box.w - cl, box.y + box.h); c.lineTo(box.x + box.w, box.y + box.h); c.lineTo(box.x + box.w, box.y + box.h - cl);
+      c.stroke();
+    }
+    /* 좌측 체력 바 */
+    var hpf = clamp((o.health + o.absorption) / (o.maxHealth || 20), 0, 1);
+    c.fillStyle = 'rgba(0,0,0,0.7)'; c.fillRect(box.x - 4 * S, box.y, 2 * S, box.h);
+    c.fillStyle = ec; c.fillRect(box.x - 4 * S, box.y + box.h * (1 - hpf), 2 * S, box.h * hpf);
+    c.restore();
+  }
+
+  if (M.nametags && box) {
+    var lbl = o.name + '  ' + (o.health + o.absorption).toFixed(1) + '❤  ' + dist.toFixed(1) + 'm';
+    c.font = '800 ' + (6 * S) + 'px "Malgun Gothic",system-ui,sans-serif';
+    var lw = c.measureText(lbl).width;
+    c.fillStyle = 'rgba(8,6,16,0.78)';
+    c.fillRect(box.x + box.w / 2 - lw / 2 - 3 * S, box.y - 12 * S, lw + 6 * S, 10 * S);
+    txt(c, lbl, box.x + box.w / 2, box.y - 4.5 * S, 6 * S, '#ffffff', 'center');
+  }
+
+  if (M.tracers && box) {
+    c.save();
+    c.strokeStyle = 'rgba(255,45,85,0.85)'; c.lineWidth = Math.max(1, S * 0.4);
+    c.beginPath(); c.moveTo(W / 2, H); c.lineTo(box.x + box.w / 2, box.y + box.h / 2); c.stroke();
+    c.restore();
+  }
+
+  if (M.targetHud) {
+    var tw2 = 76 * S, th2 = 26 * S, tx = W / 2 + 30 * S, ty = H / 2 - 6 * S;
+    c.fillStyle = 'rgba(8,6,16,0.86)'; c.fillRect(tx, ty, tw2, th2);
+    c.fillStyle = '#ff2d55'; c.fillRect(tx, ty, tw2, 1.4 * S);
+    txt(c, o.name, tx + 4 * S, ty + 9 * S, 6.4 * S, '#ffffff', 'left');
+    txt(c, dist.toFixed(1) + 'm', tx + tw2 - 4 * S, ty + 9 * S, 5.6 * S, '#8a8aaa', 'right');
+    var hf = clamp((o.health + o.absorption) / (o.maxHealth || 20), 0, 1);
+    c.fillStyle = 'rgba(255,255,255,0.12)'; c.fillRect(tx + 4 * S, ty + 13 * S, tw2 - 8 * S, 3.4 * S);
+    c.fillStyle = hf > 0.6 ? '#4affa0' : (hf > 0.3 ? '#ffd93d' : '#ff4a4a');
+    c.fillRect(tx + 4 * S, ty + 13 * S, (tw2 - 8 * S) * hf, 3.4 * S);
+    txt(c, (o.health + o.absorption).toFixed(1) + ' ❤   사과 ' + o.gapples + '   진주 ' + o.pearls,
+      tx + 4 * S, ty + 23 * S, 5.4 * S, '#a0a0c0', 'left');
+  }
+};
+
 HUD.drawUlt = function () {
   var c = this.ctx, W = this.W, H = this.H, S = this.S, p = Game.player;
   var bw = 182 * S, bx = Math.round((W - bw) / 2), by = H - 27.5 * S;
@@ -4238,11 +4487,85 @@ Entity.prototype.netTick = function () {
    핵 / 해커 / 방 설정
    ===================================================================== */
 var RoomCfg = { allowHack: true, allowHacker: true, allowAnchor: true, winsNeeded: 3 };
-var Hacks = { on: false, fly: false, autoAtk: false, dmgMult: 1.5, killAura: false, speed: false, antiKB: false, noFall: false, reach: false, _flyVy: 0 };
+
+/* ---------------------------------------------------------------------
+   모듈 레지스트리 — 핵 클라이언트 UI 와 AI 모드 화면을 모두 여기서 만든다
+   k:키  n:이름  c:카테고리  d:설명  bot:AI 적용 가능  s:슬라이더 설정
+   --------------------------------------------------------------------- */
+var HACK_CATS = ['전투', '이동', '플레이어', '시각', '기타'];
+var HACK_MODULES = [
+  /* ---------- 전투 ---------- */
+  { k: 'killAura', n: 'KillAura', c: '전투', d: '조준하지 않아도 사거리 안의 적을 자동 타격', bot: true,
+    s: [{ k: 'auraRange', n: '사거리', min: 3, max: 8, st: 0.1, u: 'm' }] },
+  { k: 'autoAtk', n: 'AutoClicker', c: '전투', d: '좌클릭을 누르고 있으면 자동 연타', bot: false,
+    s: [{ k: 'cps', n: 'CPS', min: 1, max: 20, st: 1, u: '' }] },
+  { k: 'reach', n: 'Reach', c: '전투', d: '공격이 닿는 거리를 늘린다', bot: true,
+    s: [{ k: 'reachDist', n: '거리', min: 3, max: 8, st: 0.1, u: 'm' }] },
+  { k: 'criticals', n: 'Criticals', c: '전투', d: '모든 공격을 크리티컬로 강제 (피해 1.5배)', bot: true },
+  { k: 'damage', n: 'Damage', c: '전투', d: '가하는 피해에 배율을 곱한다', bot: true,
+    s: [{ k: 'dmgMult', n: '배율', min: 0.5, max: 5, st: 0.1, u: 'x' }] },
+  { k: 'superKB', n: 'SuperKB', c: '전투', d: '때릴 때 상대를 훨씬 멀리 날린다', bot: true,
+    s: [{ k: 'kbMult', n: '배율', min: 1, max: 5, st: 0.1, u: 'x' }] },
+  { k: 'antiKB', n: 'Velocity', c: '전투', d: '내가 받는 넉백을 줄인다', bot: true,
+    s: [{ k: 'kbReduce', n: '감소', min: 0, max: 100, st: 5, u: '%' }] },
+  { k: 'triggerBot', n: 'TriggerBot', c: '전투', d: '조준선에 적이 들어오면 자동으로 때린다', bot: false },
+  { k: 'aimAssist', n: 'AimAssist', c: '전투', d: '시야를 적 쪽으로 자동 보정', bot: false,
+    s: [{ k: 'aimSpeed', n: '속도', min: 5, max: 100, st: 5, u: '%' }] },
+  { k: 'autoBlock', n: 'AutoBlock', c: '전투', d: '적이 휘두르는 순간 자동으로 막는다', bot: false },
+  { k: 'autoUlt', n: 'AutoUlt', c: '전투', d: '게이지가 차면 격노·검기를 자동 발동', bot: true },
+  /* ---------- 이동 ---------- */
+  { k: 'fly', n: 'Fly', c: '이동', d: '공중 부양 · SPACE 상승 / SHIFT 하강', bot: true,
+    s: [{ k: 'flySpeed', n: '속도', min: 0.05, max: 0.5, st: 0.01, u: '' }] },
+  { k: 'speed', n: 'Speed', c: '이동', d: '이동 속도를 올린다', bot: true,
+    s: [{ k: 'speedMult', n: '배율', min: 1, max: 3, st: 0.05, u: 'x' }] },
+  { k: 'noFall', n: 'NoFall', c: '이동', d: '아무리 높이 떨어져도 피해 없음', bot: true },
+  { k: 'noSlow', n: 'NoSlow', c: '이동', d: '먹거나 막는 중에도 감속되지 않음', bot: true },
+  { k: 'highJump', n: 'HighJump', c: '이동', d: '점프 높이 증가', bot: true,
+    s: [{ k: 'jumpMult', n: '배율', min: 1, max: 3, st: 0.1, u: 'x' }] },
+  { k: 'step', n: 'Step', c: '이동', d: '높은 블록도 그냥 걸어서 올라간다', bot: true,
+    s: [{ k: 'stepHeight', n: '높이', min: 0.6, max: 3, st: 0.1, u: '블록' }] },
+  { k: 'safeWalk', n: 'SafeWalk', c: '이동', d: '낭떠러지 밖으로 걸어나가지 않는다', bot: false },
+  /* ---------- 플레이어 ---------- */
+  { k: 'fastEat', n: 'FastEat', c: '플레이어', d: '황금사과를 거의 즉시 먹는다', bot: true },
+  { k: 'autoGapple', n: 'AutoGapple', c: '플레이어', d: '체력이 낮아지면 자동으로 황금사과', bot: true,
+    s: [{ k: 'gappleHp', n: '기준 체력', min: 2, max: 18, st: 1, u: '' }] },
+  { k: 'regen', n: 'Regen', c: '플레이어', d: '가만히 있어도 체력이 계속 찬다', bot: true,
+    s: [{ k: 'regenRate', n: '주기', min: 5, max: 60, st: 5, u: '틱' }] },
+  { k: 'infFood', n: 'InfiniteFood', c: '플레이어', d: '허기가 줄지 않는다', bot: true },
+  { k: 'noHurtCam', n: 'NoHurtCam', c: '플레이어', d: '맞을 때 화면이 붉어지거나 흔들리지 않음', bot: false },
+  { k: 'anchor', n: 'RespawnAnchor', c: '플레이어', d: '설치한 자리에서 4회까지 부활', bot: true, botOnly: true },
+  /* ---------- 시각 ---------- */
+  { k: 'esp', n: 'ESP', c: '시각', d: '적을 상자로 표시 (벽 너머도)', bot: false },
+  { k: 'tracers', n: 'Tracers', c: '시각', d: '화면 아래에서 적까지 선을 긋는다', bot: false },
+  { k: 'chams', n: 'Chams', c: '시각', d: '벽 뒤에 있어도 적 실루엣이 비친다', bot: false },
+  { k: 'nametags', n: 'NameTags', c: '시각', d: '적 머리 위에 체력·거리 표시', bot: false },
+  { k: 'targetHud', n: 'TargetHUD', c: '시각', d: '현재 타겟 정보 패널을 띄운다', bot: false },
+  { k: 'fullbright', n: 'Fullbright', c: '시각', d: '어두운 곳도 환하게 보인다', bot: false },
+  /* ---------- 기타 ---------- */
+  { k: 'timer', n: 'Timer', c: '기타', d: '게임 진행 속도 자체를 조작', bot: false,
+    s: [{ k: 'timerSpeed', n: '배속', min: 0.5, max: 3, st: 0.05, u: 'x' }] },
+  { k: 'arrayList', n: 'ArrayList', c: '기타', d: '켜진 모듈 목록을 화면에 표시', bot: false },
+  { k: 'watermark', n: 'Watermark', c: '기타', d: '클라이언트 워터마크 표시', bot: false }
+];
+var HACK_DEFAULTS = {
+  auraRange: 4.5, cps: 12, reachDist: 5.5, dmgMult: 1.5, kbMult: 2.5, kbReduce: 95,
+  aimSpeed: 40, flySpeed: 0.35, speedMult: 1.6, jumpMult: 1.6, stepHeight: 1.5,
+  gappleHp: 8, regenRate: 20, timerSpeed: 1.5
+};
+function makeModSet() {
+  var o = { on: false, _flyVy: 0 };
+  for (var i = 0; i < HACK_MODULES.length; i++) {
+    var m = HACK_MODULES[i];
+    o[m.k] = false;
+    if (m.s) for (var j = 0; j < m.s.length; j++) o[m.s[j].k] = HACK_DEFAULTS[m.s[j].k];
+  }
+  return o;
+}
+var Hacks = makeModSet();
+Hacks.arrayList = true; Hacks.watermark = true;
 var Hacker = { on: false, drainHP: false, confuse: false, forceSwitch: false };
 /* AI 에게 끼워주는 모드 (오프라인 전용) */
-var BotMods = { on: false, fly: false, speed: false, killAura: false, reach: false,
-                antiKB: false, noFall: false, anchor: false, dmgMult: 1 };
+var BotMods = makeModSet();
 
 /* 해당 엔티티에 적용 중인 모드 세트 (없으면 null) */
 function modsFor(e) {
@@ -4607,23 +4930,64 @@ Game.readInput = function () {
 
   var M = modsFor(p);
   if (M) {
+    var b = this.bot, alive = b && !b.dead && !p.dead;
+    var bd = alive ? Math.sqrt((b.x - p.x) * (b.x - p.x) + ((b.y + 0.9) - p.eyeY()) * ((b.y + 0.9) - p.eyeY()) + (b.z - p.z) * (b.z - p.z)) : 999;
+
     if (M.fly) {
       p.jumping = false;
-      if (Input.down('Space')) Hacks._flyVy = 0.14;
-      else if (p.sneaking) Hacks._flyVy = -0.14;
+      var fv = M.flySpeed;
+      if (Input.down('Space')) Hacks._flyVy = fv;
+      else if (p.sneaking) Hacks._flyVy = -fv;
       else Hacks._flyVy = 0;
       p.sneaking = false;
     }
     if (M.speed) p.sprinting = true;
-    if (M.killAura && this.bot && !this.bot.dead) {
-      var kdx = this.bot.x - p.x, kdy = (this.bot.y + 0.9) - p.eyeY(), kdz = this.bot.z - p.z;
-      if (Math.sqrt(kdx * kdx + kdy * kdy + kdz * kdz) <= (M.reach ? 5.5 : 3.0)) {
-        if (COMBAT.mode === 19 ? p.attackStrength(0.5) >= 0.9 : p.ticksSinceSwing >= 2) this.doAttack();
-      }
+
+    /* SafeWalk : 진행 방향 앞이 허공이면 그 입력을 취소 */
+    if (M.safeWalk && p.onGround) {
+      var yr = p.yaw * DEG, sy2 = Math.sin(yr), cy2 = Math.cos(yr);
+      var wx2 = p.moveStrafe * cy2 + p.moveForward * -sy2;
+      var wz2 = p.moveStrafe * sy2 + p.moveForward * cy2;
+      var wl = Math.sqrt(wx2 * wx2 + wz2 * wz2);
+      if (wl > 0.01 && !groundBelow(p.x + wx2 / wl * 0.7, p.y - 0.1, p.z + wz2 / wl * 0.7, 3))
+        { p.moveForward = 0; p.moveStrafe = 0; }
     }
-    if (M.autoAtk && Input.mouseDown[0] && !p.blocking && !p.eating) {
-      if (COMBAT.mode === 19 ? p.attackStrength(0.5) >= 0.98 : p.ticksSinceSwing >= 2) this.doAttack();
+
+    /* AimAssist : 시야를 상대 쪽으로 끌어당김 */
+    if (M.aimAssist && alive && bd < 7) {
+      var adx = b.x - p.x, adz = b.z - p.z, adl = Math.sqrt(adx * adx + adz * adz);
+      var wantY = Math.atan2(-adx, adz) / DEG;
+      var wantP = -Math.atan2((b.y + 1.4) - p.eyeY(), Math.max(0.05, adl)) / DEG;
+      var sp2 = clamp(M.aimSpeed / 100, 0.05, 1) * 30;
+      p.yaw = approachDeg(p.yaw, wantY, sp2);
+      p.pitch = clamp(approachDeg(p.pitch, wantP, sp2 * 0.8), -90, 90);
     }
+
+    /* AutoBlock : 상대가 휘두른 직후 자동으로 막기 */
+    if (M.autoBlock && alive && bd < 4.2 && !p.eating) {
+      if (b.ticksSinceSwing <= 2) p._abT = 6;
+      if (p._abT > 0) { p._abT--; p.blocking = true; }
+    }
+
+    /* AutoGapple */
+    if (M.autoGapple && !p.eating && p.gapples > 0 && p.regenTicks < 20 &&
+        (p.health + p.absorption) <= M.gappleHp) { p.slot = 1; p.startUse(); }
+
+    /* AutoUlt */
+    if (M.autoUlt && !p.eating && alive) {
+      if (p.canRage()) p.castRage();
+      else if (p.ult >= BEAM_COST && p.beamCool === 0 && bd < 20) p.castBeam();
+    }
+
+    var cd19 = COMBAT.mode === 19;
+    var cpsOk = cd19 ? p.attackStrength(0.5) >= 0.92 : p.ticksSinceSwing >= Math.max(1, Math.round(20 / M.cps));
+    /* KillAura */
+    if (M.killAura && alive && bd <= Math.max(M.reach ? M.reachDist : 3.0, M.auraRange) && cpsOk) this.doAttack();
+    /* TriggerBot : 조준선에 들어왔을 때만 */
+    else if (M.triggerBot && alive && cpsOk &&
+             rayHitsEntity(p, b, M.reach ? M.reachDist : 3.0) >= 0 && !p.blocking && !p.eating) this.doAttack();
+    /* AutoClicker */
+    else if (M.autoAtk && Input.mouseDown[0] && !p.blocking && !p.eating && cpsOk) this.doAttack();
   }
 
   /* 자동 공격 옵션 */
@@ -4706,7 +5070,8 @@ Game.tick = function () {
       if (BotMods.on && BotMods.fly && !this.bot.dead) {
         var _bt = this.bot;
         var _want = (this.player.y + 1.1) - _bt.y;
-        _bt.vy = -GRAVITY + clamp(_want * 0.12, -0.15, 0.15);
+        var _bfs = BotMods.flySpeed;
+        _bt.vy = -GRAVITY + clamp(_want * 0.12, -_bfs, _bfs);
         _bt.onGround = false; _bt.fallDistance = 0;
       }
     }
@@ -4758,7 +5123,8 @@ function loop(ts) {
   var dtReal = Math.min(0.25, (ts - _last) / 1000); _last = ts;
   /* 히트스톱 : 타격 순간 정지 */
   if (Game.hitStop > 0) { Game.hitStop -= dtReal * 1000; if (Game.hitStop < 0) Game.hitStop = 0; }
-  var dt = (Game.hitStop > 0 ? 0 : dtReal * Game.timeScale);
+  var _tm = (Hacks.on && RoomCfg.allowHack && Hacks.timer) ? Hacks.timerSpeed : 1;
+  var dt = (Game.hitStop > 0 ? 0 : dtReal * Game.timeScale * _tm);
   _acc += dt;
   var steps = 0;
   while (_acc >= 0.05 && steps < 6) { Game.tick(); _acc -= 0.05; steps++; }
@@ -4874,7 +5240,7 @@ function showMenu() {
 
 /* ---------------- 모드 설정 화면 ---------------- */
 function showMods(back) {
-  var rows = [];
+  var rows = [], sliders = [];
   function chk(o, key, label, desc) {
     var id = 'md' + rows.length;
     rows.push({ id: id, o: o, k: key });
@@ -4882,33 +5248,51 @@ function showMods(back) {
       '<input type="checkbox" id="' + id + '"' + (o[key] ? ' checked' : '') + '>' +
       '<span class="mt">' + label + '</span><span class="md">' + (desc || '') + '</span></label>';
   }
+  /* AI 에게 줄 수 있는 모듈을 레지스트리에서 그대로 뽑아 쓴다 */
+  var botHtml = '';
+  for (var ci = 0; ci < HACK_CATS.length; ci++) {
+    var cat = HACK_CATS[ci];
+    var mods = HACK_MODULES.filter(function (m) { return m.bot && m.c === cat; });
+    if (!mods.length) continue;
+    botHtml += '<div class="lab" style="font-size:11px;opacity:.7">' + cat + '</div>';
+    for (var mi = 0; mi < mods.length; mi++) {
+      var m = mods[mi];
+      botHtml += chk(BotMods, m.k, m.n, m.d);
+      /* 슬라이더는 label 밖에 둔다 (label 안이면 클릭이 체크박스로 샌다) */
+      if (m.s) {
+        botHtml += '<div class="modset">';
+        for (var si = 0; si < m.s.length; si++) {
+          var s = m.s[si], sid = 'bs_' + s.k;
+          sliders.push({ id: sid, k: s.k, st: s.st, u: s.u });
+          botHtml += '<div class="slider" style="margin:0"><span style="font-size:10.5px">' + s.n + '</span>' +
+            '<input type="range" id="' + sid + '" min="' + s.min + '" max="' + s.max + '" step="' + s.st +
+            '" value="' + BotMods[s.k] + '"><span id="' + sid + '_l" style="font-size:10.5px;min-width:44px;text-align:right">' +
+            (s.st < 1 ? BotMods[s.k].toFixed(2) : Math.round(BotMods[s.k])) + s.u + '</span></div>';
+        }
+        botHtml += '</div>';
+      }
+    }
+  }
+  var masterIdx = rows.length + 3;   // allowHack/Hacker/Anchor 다음이 BotMods.on
+
   var h = '<h2>모드 설정</h2>' +
     '<div class="sub">AI 대전 · 온라인 대전 모두 적용됩니다</div>' +
 
     '<div class="lab">내 모드 <span>사용 허용</span></div>' +
-    chk(RoomCfg, 'allowHack', '핵쓰기 모드 <kbd>Z</kbd>',
-      '날기 · 스피드 · 킬오라 · 리치 · 안티넉백 · 낙뎀무시 · 데미지 배율') +
+    chk(RoomCfg, 'allowHack', '핵쓰기 클라이언트 <kbd>Z</kbd>',
+      HACK_MODULES.filter(function (m) { return !m.botOnly; }).length + '개 모듈 · 전투 / 이동 / 플레이어 / 시각 / 기타') +
     chk(RoomCfg, 'allowHacker', '해커 모드 <kbd>X</kbd>',
       '상대 체력 · 무기 · 아이템 훔쳐보기 / 체력 흡수 · 혼란 주기') +
     chk(RoomCfg, 'allowAnchor', '리스폰 정박기',
       '핫바 4번 · 우클릭으로 설치 · 죽으면 그 자리에서 부활 (4회)') +
 
     '<div class="lab">AI 모드 <span>상대에게 끼워주기</span></div>' +
-    chk(BotMods, 'on', 'AI 핵 활성화',
-      '켜면 아래 항목이 AI 에게 적용됩니다 (오프라인 대전 전용)') +
-    chk(BotMods, 'fly', '날기', '내 높이를 따라 공중에서 추격해 옵니다') +
-    chk(BotMods, 'speed', '빠른 이동', '지치지 않고 항상 스프린트') +
-    chk(BotMods, 'killAura', '킬오라', '조준하지 않아도 사거리 안이면 무조건 명중') +
-    chk(BotMods, 'reach', '리치', '공격 사거리 5.5 블록 (기본 3.0)') +
-    chk(BotMods, 'antiKB', '안티 넉백', '때려도 거의 밀리지 않습니다') +
-    chk(BotMods, 'noFall', '낙뎀 무시', '아무리 높이 떨어져도 피해 없음') +
-    chk(BotMods, 'anchor', '리스폰 정박기', 'AI 도 죽으면 정박기 자리에서 4회까지 부활') +
-    '<div class="slider"><span>AI 데미지 배율</span>' +
-      '<input type="range" id="botDmg" min="0.5" max="5" step="0.1" value="' + BotMods.dmgMult + '">' +
-      '<span id="botDmgL">' + BotMods.dmgMult.toFixed(1) + 'x</span></div>' +
+    chk(BotMods, 'on', '★ AI 핵 활성화',
+      '이걸 켜야 아래 항목이 AI 에게 적용됩니다 (오프라인 대전 전용)') +
+    botHtml +
 
     '<div class="hint">AI 에게 핵을 끼워주면 <b>진짜 핵쟁이랑 붙는 기분</b>을 낼 수 있습니다.<br>' +
-    '내 모드는 게임 중 <b>Z</b> (핵쓰기) · <b>X</b> (해커) 키로 패널을 엽니다.</div>' +
+    '내 모드는 게임 중 <b>Z</b> (핵 클라이언트) · <b>X</b> (해커) 키로 창을 엽니다.</div>' +
     '<button class="mcbtn" id="btnModBack" style="margin-top:16px">돌아가기</button>';
   showUI(h, true);
   rows.forEach(function (r) {
@@ -4923,14 +5307,24 @@ function showMods(back) {
         if (r.k === 'allowHack') Hacks.on = false;
         if (r.k === 'allowHacker') Hacker.on = false;
       }
+      /* AI 모듈을 켜면 AI 핵 자체도 켠다 */
+      if (r.o === BotMods && r.k !== 'on' && this.checked && !BotMods.on) {
+        BotMods.on = true;
+        var mr = rows[masterIdx];
+        var master = mr && document.getElementById(mr.id);
+        if (master) { master.checked = true; master.parentNode.classList.add('on'); }
+      }
     };
   });
-  var bd = document.getElementById('botDmg');
-  if (bd) bd.oninput = function () {
-    BotMods.dmgMult = parseFloat(this.value);
-    var l = document.getElementById('botDmgL');
-    if (l) l.textContent = BotMods.dmgMult.toFixed(1) + 'x';
-  };
+  sliders.forEach(function (s) {
+    var el = document.getElementById(s.id);
+    if (!el) return;
+    el.oninput = function () {
+      BotMods[s.k] = parseFloat(this.value);
+      var l = document.getElementById(s.id + '_l');
+      if (l) l.textContent = (s.st < 1 ? BotMods[s.k].toFixed(2) : Math.round(BotMods[s.k])) + s.u;
+    };
+  });
   $('#btnModBack').onclick = function () { Snd.click(); back(); };
 }
 
@@ -5341,37 +5735,102 @@ function toggleHackerPanel() {
   }
 }
 
+/* 창을 드래그로 옮길 수 있게 만든다 */
+function makeDraggable(el, handle) {
+  handle.onmousedown = function (ev) {
+    if (ev.target.classList.contains('fx')) return;
+    ev.preventDefault();
+    var r = el.getBoundingClientRect();
+    el.style.transform = 'none'; el.style.top = r.top + 'px';
+    el.style.left = r.left + 'px'; el.style.right = 'auto';
+    var ox = ev.clientX - r.left, oy = ev.clientY - r.top;
+    function mv(e2) {
+      el.style.left = clamp(e2.clientX - ox, 0, window.innerWidth - r.width) + 'px';
+      el.style.top = clamp(e2.clientY - oy, 0, window.innerHeight - 40) + 'px';
+    }
+    function up() { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); }
+    document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+  };
+}
+
+var HK_UI = { cat: '전투', q: '', open: {} };
+
 function buildHackPanel() {
   var el = document.getElementById('hackPanel'); if (!el) return;
-  function row(key, label, tag) {
-    var on = Hacks[key];
-    return '<div class="fmod ' + (on ? 'fon' : '') + '" data-hk="' + key + '"><div class="fdot"></div>' +
-      '<div class="flabel">' + label + '</div><div class="ftag">' + tag + '</div></div>';
-  }
-  el.innerHTML =
-    '<div class="fph"><span>⚠</span> HACKS <span>Z 토글</span></div>' +
-    '<div class="fmod ' + (Hacks.on ? 'fon' : '') + '" data-hk="on"><div class="fdot"></div>' +
-      '<div class="flabel">핵 활성화</div><div class="ftag">' + (Hacks.on ? 'ON' : 'OFF') + '</div></div>' +
-    '<div class="fdiv"></div>' +
-    row('fly', '날기 (SPACE↑/SHIFT↓)', 'FLY') +
-    row('speed', '빠른 이동', 'SPEED') +
-    row('killAura', '킬오라 (자동 타격)', 'KILLAURA') +
-    row('autoAtk', '자동 클릭', 'AUTOCLICKER') +
-    row('reach', '리치 (5.5블록)', 'REACH') +
-    row('antiKB', '안티 넉백', 'ANTIKB') +
-    row('noFall', '낙뎀 무시', 'NOFALL') +
-    '<div class="fdiv"></div>' +
-    '<div class="fslider"><span><span>데미지 배율</span><span id="hkDmgLbl">' + Hacks.dmgMult.toFixed(1) + 'x</span></span>' +
-      '<input type="range" id="hkDmgSlider" min="0.5" max="5" step="0.1" value="' + Hacks.dmgMult + '"></div>' +
-    '<div class="fclue">우클릭: 게임 복귀 | Z: 닫기</div>';
-  el.querySelectorAll('[data-hk]').forEach(function (div) {
-    div.onclick = function () { var k = this.getAttribute('data-hk'); Hacks[k] = !Hacks[k]; buildHackPanel(); };
+  var q = HK_UI.q.toLowerCase();
+  var list = HACK_MODULES.filter(function (m) {
+    if (m.botOnly) return false;
+    if (q) return (m.n + ' ' + m.d).toLowerCase().indexOf(q) >= 0;
+    return m.c === HK_UI.cat;
   });
-  var sl = document.getElementById('hkDmgSlider');
-  if (sl) sl.oninput = function () {
-    Hacks.dmgMult = parseFloat(this.value);
-    var lb = document.getElementById('hkDmgLbl'); if (lb) lb.textContent = Hacks.dmgMult.toFixed(1) + 'x';
-  };
+  var onCount = 0;
+  for (var i = 0; i < HACK_MODULES.length; i++) if (Hacks[HACK_MODULES[i].k] && !HACK_MODULES[i].botOnly) onCount++;
+
+  var tabs = HACK_CATS.map(function (cat) {
+    return '<div class="ftab' + (!q && cat === HK_UI.cat ? ' fsel' : '') + '" data-cat="' + cat + '">' + cat + '</div>';
+  }).join('');
+
+  var body = list.map(function (m) {
+    var on = !!Hacks[m.k], open = !!HK_UI.open[m.k];
+    var h = '<div class="fmod' + (on ? ' fon' : '') + (open ? ' fopen' : '') + '" data-hk="' + m.k + '">' +
+      '<div class="fdot"></div><div class="flabel">' + m.n + '</div>' +
+      (m.s ? '<div class="farrow" data-exp="' + m.k + '">▶</div>' : '<div class="farrow"></div>') +
+      '</div>';
+    if (open) {
+      h += '<div class="fdesc">' + m.d + '</div>';
+      if (m.s) {
+        h += '<div class="fset">' + m.s.map(function (s) {
+          var v = Hacks[s.k];
+          return '<div class="fsrow"><div class="fslab"><span>' + s.n + '</span>' +
+            '<span class="fsval" id="hv_' + s.k + '">' + (s.st < 1 ? v.toFixed(2) : Math.round(v)) + s.u + '</span></div>' +
+            '<input type="range" data-set="' + s.k + '" data-st="' + s.st + '" data-u="' + s.u + '" min="' + s.min +
+            '" max="' + s.max + '" step="' + s.st + '" value="' + v + '"></div>';
+        }).join('') + '</div>';
+      }
+    }
+    return h;
+  }).join('');
+  if (!body) body = '<div class="fempty">일치하는 모듈이 없습니다</div>';
+
+  el.innerHTML =
+    '<div class="fbar" id="hkBar"><div class="flogo">☠</div>' +
+      '<div class="fname">' + CLIENT_NAME + '</div><div class="fver">v2.0</div>' +
+      '<div class="fx" id="hkClose">✕</div></div>' +
+    '<div class="ftabs">' + tabs + '</div>' +
+    '<div class="fsearch"><input id="hkQ" placeholder="모듈 검색..." value="' + HK_UI.q.replace(/"/g, '&quot;') + '"></div>' +
+    '<div class="fmod' + (Hacks.on ? ' fon' : '') + '" data-hk="on" style="border-bottom:1px solid #ffffff0d">' +
+      '<div class="fdot"></div><div class="flabel">클라이언트 활성화</div>' +
+      '<div class="fkey">' + (Hacks.on ? 'ENABLED' : 'DISABLED') + '</div><div class="farrow"></div></div>' +
+    '<div class="flist">' + body + '</div>' +
+    '<div class="ffoot"><b>Z</b> 닫기 · <b>우클릭</b> 복귀 · <b>▶</b> 설정' +
+      '<span class="fcount">' + onCount + ' 활성</span></div>';
+
+  makeDraggable(el, el.querySelector('#hkBar'));
+  el.querySelector('#hkClose').onclick = function () { toggleHackPanel(); };
+  el.querySelectorAll('[data-cat]').forEach(function (d) {
+    d.onclick = function () { HK_UI.cat = this.getAttribute('data-cat'); HK_UI.q = ''; Snd.click(); buildHackPanel(); };
+  });
+  var qi = el.querySelector('#hkQ');
+  qi.oninput = function () { HK_UI.q = this.value; buildHackPanel(); document.getElementById('hkQ').focus(); };
+  el.querySelectorAll('[data-hk]').forEach(function (div) {
+    div.onclick = function (ev) {
+      var k = this.getAttribute('data-hk');
+      if (ev.target.hasAttribute && ev.target.hasAttribute('data-exp')) {
+        HK_UI.open[k] = !HK_UI.open[k]; Snd.click(); buildHackPanel(); return;
+      }
+      Hacks[k] = !Hacks[k]; Snd.click();
+      if (k !== 'on' && Hacks[k] && !Hacks.on) Hacks.on = true;   // 모듈을 켜면 클라이언트도 켠다
+      buildHackPanel();
+    };
+  });
+  el.querySelectorAll('[data-set]').forEach(function (inp) {
+    inp.oninput = function () {
+      var k = this.getAttribute('data-set'), st = parseFloat(this.getAttribute('data-st'));
+      Hacks[k] = parseFloat(this.value);
+      var lb = document.getElementById('hv_' + k);
+      if (lb) lb.textContent = (st < 1 ? Hacks[k].toFixed(2) : Math.round(Hacks[k])) + this.getAttribute('data-u');
+    };
+  });
 }
 
 function buildHackerPanel() {
@@ -5389,26 +5848,39 @@ function buildHackerPanel() {
     return '<div class="faction ' + (on ? 'fon' : '') + '" data-hc="' + key + '">' +
       '<div class="fdot"></div><div class="flabel">' + label + '</div></div>';
   }
+  var dist = (bot && Game.player) ? Math.sqrt((bot.x - Game.player.x) * (bot.x - Game.player.x) +
+    (bot.z - Game.player.z) * (bot.z - Game.player.z)).toFixed(1) + 'm' : '?';
+  var onC = (Hacker.drainHP ? 1 : 0) + (Hacker.confuse ? 1 : 0) + (Hacker.forceSwitch ? 1 : 0);
   el.innerHTML =
-    '<div class="fph"><span>👁</span> HACKER <span>X 토글</span></div>' +
-    '<div class="fmod ' + (Hacker.on ? 'fon' : '') + '" data-hc="on"><div class="fdot"></div>' +
-      '<div class="flabel">해킹 활성화</div><div class="ftag">' + (Hacker.on ? 'ON' : 'OFF') + '</div></div>' +
-    '<div class="fdiv"></div>' +
+    '<div class="fbar" id="hcBar"><div class="flogo">👁</div>' +
+      '<div class="fname">TRACE</div><div class="fver">EXPLOIT</div>' +
+      '<div class="fx" id="hcClose">✕</div></div>' +
+    '<div class="fmod' + (Hacker.on ? ' fon' : '') + '" data-hc="on" style="border-bottom:1px solid #ffffff0d">' +
+      '<div class="fdot"></div><div class="flabel">인젝션 활성화</div>' +
+      '<div class="fkey">' + (Hacker.on ? 'HOOKED' : 'IDLE') + '</div></div>' +
     '<div class="hkinfo">' +
+      '<div class="hkrow"><span>대상</span><b>' + (bot ? bot.name : '?') + '</b></div>' +
       '<div class="hkrow"><span>체력</span><b>' + hp + ' ❤</b></div>' +
-      '<div class="hkbar"><div style="width:' + hpPct + '%;background:linear-gradient(90deg,#7dff9b,#ff4a4a)"></div></div>' +
+      '<div class="hkbar"><div style="width:' + hpPct + '%;background:linear-gradient(90deg,#12d67a,#ffd93d,#ff4a4a)"></div></div>' +
       '<div class="hkrow"><span>흡수</span><b>' + ab + '</b></div>' +
       '<div class="hkrow"><span>무기</span><b>' + wpn + '</b></div>' +
       '<div class="hkrow"><span>황금사과</span><b>' + ga + '</b></div>' +
       '<div class="hkrow"><span>엔더진주</span><b>' + pe + '</b></div>' +
+      '<div class="hkrow"><span>거리</span><b>' + dist + '</b></div>' +
     '</div>' +
     '<div class="fdiv"></div>' +
-    arow('drainHP', '체력 흡수 (40틱마다)') +
-    arow('confuse', '혼란 주기 (시야 틀기)') +
+    arow('drainHP', '체력 흡수 (40틱)') +
+    arow('confuse', '혼란 · 시야 틀기') +
     arow('forceSwitch', '강제 슬롯 전환') +
-    '<div class="fclue">우클릭: 게임 복귀 | X: 닫기</div>';
+    '<div class="ffoot"><b>X</b> 닫기 · <b>우클릭</b> 복귀<span class="fcount">' + onC + ' 활성</span></div>';
+  makeDraggable(el, el.querySelector('#hcBar'));
+  el.querySelector('#hcClose').onclick = function () { toggleHackerPanel(); };
   el.querySelectorAll('[data-hc]').forEach(function (div) {
-    div.onclick = function () { var k = this.getAttribute('data-hc'); Hacker[k] = !Hacker[k]; buildHackerPanel(); };
+    div.onclick = function () {
+      var k = this.getAttribute('data-hc'); Hacker[k] = !Hacker[k]; Snd.click();
+      if (k !== 'on' && Hacker[k] && !Hacker.on) Hacker.on = true;
+      buildHackerPanel();
+    };
   });
 }
 
