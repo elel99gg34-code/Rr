@@ -118,6 +118,17 @@
   .hkrow b{color:#4aff9c;font-weight:700}
   .hkbar{height:5px;background:#1a2a1a;border-radius:2px;margin:4px 0 6px}
   .hkbar div{height:100%;border-radius:2px;transition:.2s}
+  /* 모드 설정 화면 */
+  .modrow{display:grid;grid-template-columns:18px 1fr;gap:3px 10px;align-items:center;text-align:left;
+    padding:8px 11px;margin-bottom:4px;background:#ffffff08;border-left:2px solid #ffffff18;cursor:pointer;transition:.12s}
+  .modrow:hover{background:#ffffff12}
+  .modrow.on{background:linear-gradient(90deg,#ff5c1a22,transparent);border-left-color:#ff8f1a}
+  .modrow input{width:15px;height:15px;accent-color:#ff8f1a;cursor:pointer;grid-row:span 2}
+  .modrow .mt{font-size:14px;font-weight:700;color:#c8ccd8}
+  .modrow.on .mt{color:#ffd93d}
+  .modrow .md{font-size:11px;color:#7a7f92;grid-column:2;line-height:1.5}
+  .modrow kbd{background:#26232f;border:1px solid #000;box-shadow:0 2px 0 #0a090d;padding:1px 6px;
+    font-family:inherit;font-size:11px;color:#ffd93d;margin-left:6px;font-weight:700}
 </style>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
@@ -1836,7 +1847,10 @@ Entity.prototype.reset = function (sp) {
   this.moveForward = 0; this.moveStrafe = 0; this.jumping = false; this.limbSwingAmount = 0;
   this.distWalked = 0; this.prevDistWalked = 0; this.stepDist = 0; this.collidedH = false;
   this.anchorPos = null;
-  this.anchorCharges = (typeof RoomCfg !== 'undefined' && RoomCfg.allowAnchor) ? 4 : 0;
+  if (typeof Game !== 'undefined' && Game.bot === this)
+    this.anchorCharges = (typeof BotMods !== 'undefined' && BotMods.on && BotMods.anchor) ? 4 : 0;
+  else
+    this.anchorCharges = (typeof RoomCfg !== 'undefined' && RoomCfg.allowAnchor) ? 4 : 0;
 };
 
 Entity.prototype.addExhaustion = function (a) {
@@ -1852,7 +1866,8 @@ Entity.prototype.heal = function (a) {
   this.health = Math.min(this.maxHealth, this.health + a);
 };
 Entity.prototype.onLand = function (dist) {
-  if (this === Game.player && Hacks.on && Hacks.noFall) { this.fallDistance = 0; return; }
+  var _M = modsFor(this);
+  if (_M && _M.noFall) { this.fallDistance = 0; return; }
   var dmg = Math.ceil(dist - 3);
   if (dmg > 0) {
     this.hurtRaw(dmg, null, true);
@@ -2004,8 +2019,8 @@ Entity.prototype.knockBack = function (fromX, fromZ, strength) {
   var dx = fromX - this.x, dz = fromZ - this.z;
   var f = Math.sqrt(dx * dx + dz * dz);
   if (f < 1e-4) { dx = (Math.random() - Math.random()) * 0.01; dz = (Math.random() - Math.random()) * 0.01; f = Math.sqrt(dx * dx + dz * dz); }
-  var antiKB = (this === Game.player && Hacks.on && Hacks.antiKB);
-  var kbScale = antiKB ? 0.05 : 1;
+  var _Mk = modsFor(this);
+  var kbScale = (_Mk && _Mk.antiKB) ? 0.05 : 1;
   this.vx /= 2; this.vy /= 2; this.vz /= 2;
   this.vx -= dx / f * strength * kbScale;
   this.vy += strength * kbScale;
@@ -2098,7 +2113,9 @@ Entity.prototype.hurtRaw = function (amount, attacker, bypassArmor) {
 
 Entity.prototype.die = function (killer, cause) {
   if (this.dead) return;
-  if (this === Game.player && RoomCfg.allowAnchor && this.anchorPos && this.anchorCharges > 0 && !Game.online) {
+  var _Ma = modsFor(this);
+  var _anchorOn = (this === Game.player) ? RoomCfg.allowAnchor : !!(_Ma && _Ma.anchor);
+  if (_anchorOn && !Game.online && this.anchorPos && this.anchorCharges > 0) {
     this.anchorCharges--;
     this.x = this.px = this.anchorPos.x;
     this.y = this.py = this.anchorPos.y;
@@ -2108,8 +2125,11 @@ Entity.prototype.die = function (killer, cause) {
     this.hurtTime = 12; this.dead = false; this.deathTicks = 0;
     this.sprinting = false; this.eating = false; this.blocking = false;
     if (this.anchorCharges === 0) this.anchorPos = null;
-    Game.log('정박기로 부활! 남은 충전: ' + this.anchorCharges, '#5fe8d0');
-    HUD.addCallout('정박기 부활', '충전 ' + this.anchorCharges + '남음', '#5fe8d0', 14);
+    var _mine = (this === Game.player);
+    Game.log((_mine ? '정박기로 부활!' : this.name + ' 님이 정박기로 부활!') +
+      ' 남은 충전: ' + this.anchorCharges, '#5fe8d0');
+    HUD.addCallout(_mine ? '정박기 부활' : '상대 정박기 부활', '충전 ' + this.anchorCharges + '남음',
+      _mine ? '#5fe8d0' : '#ff8f6a', 14);
     return;
   }
   this.dead = true; this.health = 0; this.deathTicks = 0;
@@ -2157,8 +2177,15 @@ function rayHitsEntity(src, target, reach) {
 Entity.prototype.attemptAttack = function (target) {
   this.swingArm();
   this.stats.swings++;
-  var reach = (this === Game.player && Hacks.on && Hacks.reach) ? 5.5 : 3.0;
+  var _M = modsFor(this);
+  var reach = (_M && _M.reach) ? 5.5 : 3.0;
   var hit = (target && !target.dead) ? rayHitsEntity(this, target, reach) : -1;
+  /* 킬오라 : 조준하지 않아도 사거리 안이면 명중 처리 */
+  if (hit < 0 && _M && _M.killAura && target && !target.dead) {
+    var _kx = target.x - this.x, _ky = (target.y + 0.9) - this.eyeY(), _kz = target.z - this.z;
+    var _kd = Math.sqrt(_kx * _kx + _ky * _ky + _kz * _kz);
+    if (_kd <= reach) hit = _kd;
+  }
   var cooled = this.attackStrength(0.5);
   if (hit < 0) {
     /* 빗나감 : 1.9 에서는 쿨다운도 초기화된다 */
@@ -2174,7 +2201,8 @@ Entity.prototype.attemptAttack = function (target) {
 Entity.prototype.performAttack = function (target, cooled) {
   var k = this.kit;
   var dmg = k.dmg + ((k.str || 0) + (this.rageTicks > 0 ? 2 : 0)) * 3;   // 힘 물약 : 레벨당 +3
-  if (this === Game.player && Hacks.on && Hacks.dmgMult !== 1) dmg *= Hacks.dmgMult;
+  var _Md = modsFor(this);
+  if (_Md && _Md.dmgMult !== 1) dmg *= _Md.dmgMult;
   var ench = k.sharp > 0 ? (0.5 * k.sharp + 0.5) : 0;
   var full = COMBAT.mode === 18 || cooled > 0.9;
 
@@ -2618,6 +2646,16 @@ BotAI.prototype.tick = function (target) {
   e.sprinting = (e.moveForward > 0 && !e.eating && !e.blocking && this.wtapTimer === 0 && e.food > 6 &&
     (realDist > 1.6));
 
+  /* ---------- AI 모드 (플레이어가 끼워준 핵) ---------- */
+  var mods = modsFor(e);
+  if (mods) {
+    if (mods.speed && !e.eating) e.sprinting = true;
+    if (mods.anchor && !e.anchorPos && e.anchorCharges > 0 && e.onGround) {
+      e.anchorPos = { x: e.x, y: e.y, z: e.z };
+      Game.log(e.name + ' 님이 리스폰 정박기를 설치했습니다', '#ff8f6a');
+    }
+  }
+
   /* ---------- 2.0 : 격노 / 검기 ---------- */
   if (this.ultTimer > 0) this.ultTimer--;
   if (this.beamCool > 0) this.beamCool--;
@@ -2638,7 +2676,10 @@ BotAI.prototype.tick = function (target) {
   }
 
   /* ---------- 공격 ---------- */
-  var reachOk = rayHitsEntity(e, target, d.reach) >= 0;
+  var botReach = (mods && mods.reach) ? 5.5 : d.reach;
+  var reachOk = (mods && mods.killAura)
+    ? (realDist < botReach)                       // 킬오라 : 조준 불필요
+    : (rayHitsEntity(e, target, botReach) >= 0);
   var strength = e.attackStrength(0.5);
   var canAtk;
   if (COMBAT.mode === 18) {
@@ -2665,9 +2706,10 @@ BotAI.prototype.tick = function (target) {
   if (this.hesitateT > 0) this.hesitateT--;
   else if (Math.random() < d.hesitate) this.hesitateT = rndInt(6, 18);
 
-  var doIt = canAtk && reachOk && !e.eating && !e.dead && this.hesitateT === 0;
-  /* 크리티컬 노리는 중이면 낙하가 시작될 때까지 참는다 */
-  if (doIt && this.critIntent && this.critPending && (e.onGround || e.fallDistance <= 0)) doIt = false;
+  var aura = !!(mods && mods.killAura);
+  var doIt = canAtk && reachOk && !e.eating && !e.dead && (aura || this.hesitateT === 0);
+  /* 크리티컬 노리는 중이면 낙하가 시작될 때까지 참는다 (킬오라는 무시) */
+  if (doIt && !aura && this.critIntent && this.critPending && (e.onGround || e.fallDistance <= 0)) doIt = false;
 
   if (doIt) {
     if (e.blocking) e.blocking = false;
@@ -3519,8 +3561,23 @@ HUD.draw = function (alpha) {
     if (Hacker.confuse) _hrtags.push('CONFUSE');
     if (Hacker.forceSwitch) _hrtags.push('SWITCH');
     txt(c, '👁 HACKER [X]: ' + (_hrtags.length ? _hrtags.join(' ') : '비활성'), 8 * S, _hsy, 5.2 * S, '#4aff9c', 'left');
+    _hsy += 12 * S;
   } else if (RoomCfg.allowHacker) {
     txt(c, '[X] 해커', 8 * S, _hsy, 5 * S, '#1a3a1a', 'left');
+    _hsy += 12 * S;
+  }
+  /* AI 에게 끼워준 핵 */
+  if (!Game.online && BotMods.on) {
+    var _bg = [];
+    if (BotMods.fly) _bg.push('FLY');
+    if (BotMods.speed) _bg.push('SPEED');
+    if (BotMods.killAura) _bg.push('KILLAURA');
+    if (BotMods.reach) _bg.push('REACH');
+    if (BotMods.antiKB) _bg.push('ANTIKB');
+    if (BotMods.noFall) _bg.push('NOFALL');
+    if (BotMods.anchor) _bg.push('ANCHOR');
+    if (BotMods.dmgMult !== 1) _bg.push('DMG' + BotMods.dmgMult.toFixed(1) + 'x');
+    txt(c, '☠ AI HACK: ' + (_bg.length ? _bg.join(' ') : '없음'), 8 * S, _hsy, 5.2 * S, '#ff8f1a', 'left');
   }
 
   /* ---- 2.0 : 궁극 게이지 / 콤보 / 콜아웃 ---- */
@@ -4183,6 +4240,17 @@ Entity.prototype.netTick = function () {
 var RoomCfg = { allowHack: true, allowHacker: true, allowAnchor: true, winsNeeded: 3 };
 var Hacks = { on: false, fly: false, autoAtk: false, dmgMult: 1.5, killAura: false, speed: false, antiKB: false, noFall: false, reach: false, _flyVy: 0 };
 var Hacker = { on: false, drainHP: false, confuse: false, forceSwitch: false };
+/* AI 에게 끼워주는 모드 (오프라인 전용) */
+var BotMods = { on: false, fly: false, speed: false, killAura: false, reach: false,
+                antiKB: false, noFall: false, anchor: false, dmgMult: 1 };
+
+/* 해당 엔티티에 적용 중인 모드 세트 (없으면 null) */
+function modsFor(e) {
+  if (!e) return null;
+  if (e === Game.player) return (RoomCfg.allowHack && Hacks.on) ? Hacks : null;
+  if (e === Game.bot && !Game.online) return BotMods.on ? BotMods : null;
+  return null;
+}
 
 /* =====================================================================
    게임 : 상태머신 / 룰 / 메뉴 / 루프
@@ -4537,25 +4605,29 @@ Game.readInput = function () {
     p.sprinting = true;
   if (f <= 0) Input.sprintTap = false;
 
-  if (Hacks.on) {
-    if (Hacks.fly) {
+  var M = modsFor(p);
+  if (M) {
+    if (M.fly) {
       p.jumping = false;
       if (Input.down('Space')) Hacks._flyVy = 0.14;
       else if (p.sneaking) Hacks._flyVy = -0.14;
       else Hacks._flyVy = 0;
       p.sneaking = false;
     }
-    if (Hacks.speed) p.sprinting = true;
-    if (Hacks.killAura && this.bot && !this.bot.dead) {
-      if (COMBAT.mode === 19 ? p.attackStrength(0.5) >= 0.9 : p.ticksSinceSwing >= 2) this.doAttack();
+    if (M.speed) p.sprinting = true;
+    if (M.killAura && this.bot && !this.bot.dead) {
+      var kdx = this.bot.x - p.x, kdy = (this.bot.y + 0.9) - p.eyeY(), kdz = this.bot.z - p.z;
+      if (Math.sqrt(kdx * kdx + kdy * kdy + kdz * kdz) <= (M.reach ? 5.5 : 3.0)) {
+        if (COMBAT.mode === 19 ? p.attackStrength(0.5) >= 0.9 : p.ticksSinceSwing >= 2) this.doAttack();
+      }
     }
-    if (Hacks.autoAtk && Input.mouseDown[0] && !p.blocking && !p.eating) {
+    if (M.autoAtk && Input.mouseDown[0] && !p.blocking && !p.eating) {
       if (COMBAT.mode === 19 ? p.attackStrength(0.5) >= 0.98 : p.ticksSinceSwing >= 2) this.doAttack();
     }
   }
 
   /* 자동 공격 옵션 */
-  if (!Hacks.on && this.settings.autoAtk && Input.mouseDown[0] && !p.blocking && !p.eating) {
+  if (!M && this.settings.autoAtk && Input.mouseDown[0] && !p.blocking && !p.eating) {
     if (COMBAT.mode === 19 ? p.attackStrength(0.5) >= 0.98 : p.ticksSinceSwing >= 2) this.doAttack();
   }
 };
@@ -4628,10 +4700,20 @@ Game.tick = function () {
   if (this.state === 'play') {
     this.readInput();
     if (this.online) { this.bot.netTick(); Net.tick(); }
-    else { this.ai.tick(this.player); this.bot.tick(); }
+    else {
+      this.ai.tick(this.player); this.bot.tick();
+      /* AI 날기 : 플레이어 높이를 따라다닌다 */
+      if (BotMods.on && BotMods.fly && !this.bot.dead) {
+        var _bt = this.bot;
+        var _want = (this.player.y + 1.1) - _bt.y;
+        _bt.vy = -GRAVITY + clamp(_want * 0.12, -0.15, 0.15);
+        _bt.onGround = false; _bt.fallDistance = 0;
+      }
+    }
     this.player.tick();
     /* fly post-tick override */
-    if (Hacks.on && Hacks.fly) {
+    var _pM = modsFor(this.player);
+    if (_pM && _pM.fly) {
       var _fp = this.player;
       _fp.vy = -GRAVITY + Hacks._flyVy;
       _fp.onGround = false; _fp.fallDistance = 0;
@@ -4765,6 +4847,7 @@ function menuHTML() {
     '<div class="kv"><span>[F] 격노</span><b>게이지 100 · 8초간 힘II·신속II·공속↑·검기 무료</b></div>' +
     '<button class="mcbtn primary" id="btnStart" style="margin-top:18px">결투 시작</button>' +
     '<button class="mcbtn" id="btnOnline" style="border-color:#6fd0ff88;color:#bfe9ff">온라인 1 vs 1 (사람과 대전)</button>' +
+    '<button class="mcbtn" id="btnMods" style="border-color:#ff4a4a66;color:#ffb3b3">모드 설정 — 핵 · 해커 · 정박기 · AI 핵</button>' +
     '<div class="row"><button class="mcbtn small" id="btnSet">설정</button><button class="mcbtn small" id="btnKeys">조작법</button></div>' +
     '<div class="hint">클릭해서 마우스를 잠그면 시작합니다 · ESC 로 일시정지<br>' +
     '공격 쿨다운·무적시간·넉백·방어구 감소 공식은 <b>바닐라 그대로</b>, 거기에 궁극기가 얹혔습니다</div>' +
@@ -4784,9 +4867,73 @@ function showMenu() {
   bindOpts('bo', '' + Game.settings.bo, function (v) { Game.settings.bo = parseInt(v, 10); });
   $('#btnStart').onclick = function () { Snd.init(); Snd.resume(); Snd.click(); Game.startMatch(); requestLock(); };
   $('#btnOnline').onclick = function () { Snd.click(); showOnline(); };
+  $('#btnMods').onclick = function () { Snd.click(); showMods(showMenu); };
   $('#btnSet').onclick = function () { Snd.click(); showSettings(showMenu); };
   $('#btnKeys').onclick = function () { Snd.click(); showKeys(showMenu); };
 }
+
+/* ---------------- 모드 설정 화면 ---------------- */
+function showMods(back) {
+  var rows = [];
+  function chk(o, key, label, desc) {
+    var id = 'md' + rows.length;
+    rows.push({ id: id, o: o, k: key });
+    return '<label for="' + id + '" class="modrow' + (o[key] ? ' on' : '') + '">' +
+      '<input type="checkbox" id="' + id + '"' + (o[key] ? ' checked' : '') + '>' +
+      '<span class="mt">' + label + '</span><span class="md">' + (desc || '') + '</span></label>';
+  }
+  var h = '<h2>모드 설정</h2>' +
+    '<div class="sub">AI 대전 · 온라인 대전 모두 적용됩니다</div>' +
+
+    '<div class="lab">내 모드 <span>사용 허용</span></div>' +
+    chk(RoomCfg, 'allowHack', '핵쓰기 모드 <kbd>Z</kbd>',
+      '날기 · 스피드 · 킬오라 · 리치 · 안티넉백 · 낙뎀무시 · 데미지 배율') +
+    chk(RoomCfg, 'allowHacker', '해커 모드 <kbd>X</kbd>',
+      '상대 체력 · 무기 · 아이템 훔쳐보기 / 체력 흡수 · 혼란 주기') +
+    chk(RoomCfg, 'allowAnchor', '리스폰 정박기',
+      '핫바 4번 · 우클릭으로 설치 · 죽으면 그 자리에서 부활 (4회)') +
+
+    '<div class="lab">AI 모드 <span>상대에게 끼워주기</span></div>' +
+    chk(BotMods, 'on', 'AI 핵 활성화',
+      '켜면 아래 항목이 AI 에게 적용됩니다 (오프라인 대전 전용)') +
+    chk(BotMods, 'fly', '날기', '내 높이를 따라 공중에서 추격해 옵니다') +
+    chk(BotMods, 'speed', '빠른 이동', '지치지 않고 항상 스프린트') +
+    chk(BotMods, 'killAura', '킬오라', '조준하지 않아도 사거리 안이면 무조건 명중') +
+    chk(BotMods, 'reach', '리치', '공격 사거리 5.5 블록 (기본 3.0)') +
+    chk(BotMods, 'antiKB', '안티 넉백', '때려도 거의 밀리지 않습니다') +
+    chk(BotMods, 'noFall', '낙뎀 무시', '아무리 높이 떨어져도 피해 없음') +
+    chk(BotMods, 'anchor', '리스폰 정박기', 'AI 도 죽으면 정박기 자리에서 4회까지 부활') +
+    '<div class="slider"><span>AI 데미지 배율</span>' +
+      '<input type="range" id="botDmg" min="0.5" max="5" step="0.1" value="' + BotMods.dmgMult + '">' +
+      '<span id="botDmgL">' + BotMods.dmgMult.toFixed(1) + 'x</span></div>' +
+
+    '<div class="hint">AI 에게 핵을 끼워주면 <b>진짜 핵쟁이랑 붙는 기분</b>을 낼 수 있습니다.<br>' +
+    '내 모드는 게임 중 <b>Z</b> (핵쓰기) · <b>X</b> (해커) 키로 패널을 엽니다.</div>' +
+    '<button class="mcbtn" id="btnModBack" style="margin-top:16px">돌아가기</button>';
+  showUI(h, true);
+  rows.forEach(function (r) {
+    var el = document.getElementById(r.id);
+    if (!el) return;
+    el.onchange = function () {
+      r.o[r.k] = this.checked; Snd.click();
+      if (this.checked) this.parentNode.classList.add('on');
+      else this.parentNode.classList.remove('on');
+      /* 허용을 끄면 이미 켜져 있던 핵도 함께 끈다 */
+      if (r.o === RoomCfg && !this.checked) {
+        if (r.k === 'allowHack') Hacks.on = false;
+        if (r.k === 'allowHacker') Hacker.on = false;
+      }
+    };
+  });
+  var bd = document.getElementById('botDmg');
+  if (bd) bd.oninput = function () {
+    BotMods.dmgMult = parseFloat(this.value);
+    var l = document.getElementById('botDmgL');
+    if (l) l.textContent = BotMods.dmgMult.toFixed(1) + 'x';
+  };
+  $('#btnModBack').onclick = function () { Snd.click(); back(); };
+}
+
 function isTouchOnly() {
   try { return ('ontouchstart' in window) && !window.matchMedia('(pointer:fine)').matches; }
   catch (e) { return false; }
