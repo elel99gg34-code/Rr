@@ -182,6 +182,67 @@
   .modrow .md{font-size:11px;color:#7a7f92;grid-column:2;line-height:1.5}
   .modrow kbd{background:#26232f;border:1px solid #000;box-shadow:0 2px 0 #0a090d;padding:1px 6px;
     font-family:inherit;font-size:11px;color:#ffd93d;margin-left:6px;font-weight:700}
+  /* ===== 모바일 터치 조작 ===== */
+  #touch{position:fixed;inset:0;z-index:15;display:none;touch-action:none;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+  #touch.on{display:block}
+  #touch .tz{position:absolute;pointer-events:auto}
+  /* 왼쪽 조이스틱 */
+  #tstick{left:0;bottom:0;width:44%;height:64%;pointer-events:auto}
+  #tstickBase{position:absolute;width:132px;height:132px;border-radius:50%;
+    border:2px solid #ffffff2a;background:#0a081266;left:26px;bottom:26px;
+    display:grid;place-items:center;transition:opacity .15s;opacity:.75}
+  #tstickKnob{width:56px;height:56px;border-radius:50%;background:#ffffff33;
+    border:2px solid #ffffff55;transition:transform .05s linear}
+  /* 오른쪽 시점 영역 */
+  #tlook{right:0;top:0;width:56%;height:100%;pointer-events:auto}
+  /* 버튼 공통 */
+  .tbtn{position:absolute;pointer-events:auto;display:grid;place-items:center;
+    border-radius:50%;background:#0a0812aa;border:2px solid #ffffff28;color:#e8e6f2;
+    font-weight:800;text-align:center;line-height:1.15;font-family:inherit;
+    -webkit-tap-highlight-color:transparent}
+  .tbtn:active,.tbtn.tdown{background:#ff2d5544;border-color:#ff2d55aa;color:#fff;transform:scale(.94)}
+  .tbtn small{display:block;font-size:8px;opacity:.6;font-weight:700}
+  #tAtk{right:22px;bottom:120px;width:88px;height:88px;font-size:14px;
+    background:#7a0f2aaa;border-color:#ff2d5566}
+  #tUse{right:120px;bottom:150px;width:62px;height:62px;font-size:11px}
+  #tJump{right:118px;bottom:64px;width:66px;height:66px;font-size:12px}
+  #tSneak{right:22px;bottom:40px;width:62px;height:62px;font-size:11px}
+  #tSneak.tlock{background:#ff8f1a55;border-color:#ff8f1aaa}
+  #tQ{right:196px;bottom:172px;width:50px;height:50px;font-size:11px}
+  #tF{right:200px;bottom:112px;width:50px;height:50px;font-size:11px}
+  /* 상단 유틸 버튼 */
+  .ttop{position:absolute;top:8px;pointer-events:auto;padding:7px 11px;border-radius:5px;
+    background:#0a0812bb;border:1px solid #ffffff22;color:#c8c5d8;font-size:11px;font-weight:800;
+    font-family:inherit;-webkit-tap-highlight-color:transparent}
+  .ttop:active{background:#ff2d5544}
+  #tPause{right:8px}
+  #tHackBtn{right:64px;color:#ff8fa5}
+  #tHackerBtn{right:128px;color:#7dffc0}
+  /* 핫바 */
+  #tbar{position:absolute;left:50%;transform:translateX(-50%);bottom:6px;display:flex;gap:6px;
+    pointer-events:auto}
+  .tslot{width:52px;height:52px;background:#0a0812bb;border:2px solid #ffffff22;border-radius:4px;
+    display:grid;place-items:center;position:relative;color:#e8e6f2;font-size:19px;font-weight:800}
+  .tslot.tsel{border-color:#ffd93d;background:#ffd93d22}
+  .tslot b{position:absolute;right:3px;bottom:1px;font-size:10px;color:#ffd93d}
+  @media (max-height:430px){
+    #tstickBase{width:108px;height:108px;left:16px;bottom:16px}
+    #tstickKnob{width:46px;height:46px}
+    #tAtk{width:74px;height:74px;bottom:92px;right:16px}
+    #tUse{width:54px;height:54px;bottom:118px;right:100px}
+    #tJump{width:56px;height:56px;bottom:48px;right:98px}
+    #tSneak{width:52px;height:52px;bottom:30px;right:16px}
+    #tQ{width:44px;height:44px;right:164px;bottom:136px}
+    #tF{width:44px;height:44px;right:168px;bottom:86px}
+    .tslot{width:44px;height:44px;font-size:16px}
+  }
+  /* 좁은 화면에서 핵 창이 넘치지 않도록 */
+  @media (max-width:760px){
+    #hackPanel{width:min(300px,86vw);left:8px}
+    #hackerPanel{width:min(200px,60vw);right:8px}
+    .flist{max-height:44vh}
+  }
   .modset{padding:6px 12px 8px 40px;margin:-4px 0 5px;background:#ffffff05;border-left:2px solid #ff8f1a44}
   .modset .slider{display:flex;align-items:center;gap:9px;color:#8d88a3}
   .modset .slider input{flex:1;accent-color:#ff8f1a}
@@ -192,6 +253,20 @@
 <canvas id="gl"></canvas>
 <canvas id="hud"></canvas>
 <div id="ui"><div class="bg"></div><div class="panel" id="panel"></div></div>
+<div id="touch">
+  <div class="tz" id="tlook"></div>
+  <div class="tz" id="tstick"><div id="tstickBase"><div id="tstickKnob"></div></div></div>
+  <button class="tbtn" id="tAtk">공격</button>
+  <button class="tbtn" id="tUse">사용<small>막기/먹기</small></button>
+  <button class="tbtn" id="tJump">점프</button>
+  <button class="tbtn" id="tSneak">웅크<small>길게:달리기</small></button>
+  <button class="tbtn" id="tQ">검기<small>Q</small></button>
+  <button class="tbtn" id="tF">격노<small>F</small></button>
+  <button class="ttop" id="tPause">■ 메뉴</button>
+  <button class="ttop" id="tHackBtn">☠ 핵</button>
+  <button class="ttop" id="tHackerBtn">👁 해커</button>
+  <div id="tbar"></div>
+</div>
 <div id="hackPanel" class="fpanel" style="display:none"></div>
 <div id="hackerPanel" class="fpanel" style="display:none"></div>
 <div id="load">
@@ -347,6 +422,14 @@ var Input = {
   keys: {}, mouseDown: [false, false, false], sens: 0.55, invY: false,
   dx: 0, dy: 0, wheel: 0, locked: false,
   down: function (c) { return !!this.keys[c]; }
+};
+/* 모바일 터치 조작 상태 */
+var TouchIn = {
+  on: false,            // 터치 모드 활성 여부
+  mx: 0, my: 0,         // 조이스틱 (-1..1)
+  jump: false, sneak: false, sprint: false,
+  attackHeld: false, useHeld: false,
+  stickId: -1, lookId: -1, lookX: 0, lookY: 0
 };
 /* =====================================================================
    절차적 텍스처 생성 (외부 이미지 0개)
@@ -3825,33 +3908,35 @@ HUD.drawStatus = function () {
   var c = this.ctx, W = this.W, H = this.H, S = this.S, p = Game.player;
   var barW = 182 * S, bx = Math.round((W - barW) / 2), by = H - 24 * S;
 
-  /* ---- 핫바 ---- */
-  c.fillStyle = 'rgba(0,0,0,0.62)';
-  c.fillRect(bx - S, by - S, barW + 2 * S, 22 * S + 2 * S);
-  c.fillStyle = 'rgba(255,255,255,0.10)'; c.fillRect(bx - S, by - S, barW + 2 * S, S);
-  for (var i = 0; i < 9; i++) {
-    var sx = bx + i * 20 * S + S;
-    c.strokeStyle = 'rgba(255,255,255,0.10)'; c.lineWidth = 1;
-    c.strokeRect(sx + 0.5, by + S + 0.5, 20 * S - 1, 20 * S - 1);
-  }
-  var items = Game.hotbar();
-  for (var j = 0; j < items.length; j++) {
-    var it = items[j]; if (!it) continue;
-    var ix = bx + j * 20 * S + 3 * S, iy = by + 3 * S;
-    var cvs = this.itemCv[it.icon];
-    if (cvs) c.drawImage(cvs, ix, iy, 16 * S, 16 * S);
-    if (it.count > 1) txt(c, '' + it.count, ix + 16 * S, iy + 16 * S - S, 6 * S, '#ffffff', 'right');
-    if (it.cd !== undefined && it.cd < 1) {
-      c.fillStyle = 'rgba(255,255,255,0.30)';
-      c.fillRect(ix, iy + 16 * S * it.cd, 16 * S, 16 * S * (1 - it.cd));
+  /* ---- 핫바 (터치 모드에선 화면 하단 슬롯 버튼이 대신 그린다) ---- */
+  if (!TouchIn.on) {
+    c.fillStyle = 'rgba(0,0,0,0.62)';
+    c.fillRect(bx - S, by - S, barW + 2 * S, 22 * S + 2 * S);
+    c.fillStyle = 'rgba(255,255,255,0.10)'; c.fillRect(bx - S, by - S, barW + 2 * S, S);
+    for (var i = 0; i < 9; i++) {
+      var sx = bx + i * 20 * S + S;
+      c.strokeStyle = 'rgba(255,255,255,0.10)'; c.lineWidth = 1;
+      c.strokeRect(sx + 0.5, by + S + 0.5, 20 * S - 1, 20 * S - 1);
     }
+    var items = Game.hotbar();
+    for (var j = 0; j < items.length; j++) {
+      var it = items[j]; if (!it) continue;
+      var ix = bx + j * 20 * S + 3 * S, iy = by + 3 * S;
+      var cvs = this.itemCv[it.icon];
+      if (cvs) c.drawImage(cvs, ix, iy, 16 * S, 16 * S);
+      if (it.count > 1) txt(c, '' + it.count, ix + 16 * S, iy + 16 * S - S, 6 * S, '#ffffff', 'right');
+      if (it.cd !== undefined && it.cd < 1) {
+        c.fillStyle = 'rgba(255,255,255,0.30)';
+        c.fillRect(ix, iy + 16 * S * it.cd, 16 * S, 16 * S * (1 - it.cd));
+      }
+    }
+    /* 선택 슬롯 */
+    var selx = bx + p.slot * 20 * S - S;
+    c.strokeStyle = '#ffffff'; c.lineWidth = 2 * S;
+    c.strokeRect(selx + S, by, 22 * S - 2 * S, 22 * S);
+    c.strokeStyle = 'rgba(0,0,0,0.6)'; c.lineWidth = S;
+    c.strokeRect(selx + S - S * 1.5, by - S * 1.5, 22 * S, 22 * S + S);
   }
-  /* 선택 슬롯 */
-  var selx = bx + p.slot * 20 * S - S;
-  c.strokeStyle = '#ffffff'; c.lineWidth = 2 * S;
-  c.strokeRect(selx + S, by, 22 * S - 2 * S, 22 * S);
-  c.strokeStyle = 'rgba(0,0,0,0.6)'; c.lineWidth = S;
-  c.strokeRect(selx + S - S * 1.5, by - S * 1.5, 22 * S, 22 * S + S);
 
   /* ---- 체력 ---- */
   var hx = bx, hy = by - 12 * S;
@@ -4590,7 +4675,9 @@ var Game = {
   settings: {
     sens: 0.55, fov: 78, vol: 0.6, sound: true, render: 110, bob: true,
     dmgNum: true, indicator: true, autoAtk: false, invY: false, debug: false, bo: 3, thirdAllowed: true,
-    dynRes: true, shadows: true, hitStop: true, lowFx: false
+    dynRes: true, shadows: true, hitStop: true, lowFx: false,
+    shiftSprint: false,   // true 면 Shift=달리기 / Ctrl=웅크리기
+    touchUI: null         // null = 기기 자동 판별
   },
   menuCam: null, lastW: 0, paused: false,
   online: false, myName: '플레이어', netSeat: 0,
@@ -4921,10 +5008,17 @@ Game.readInput = function () {
   }
   var f = (Input.down('KeyW') ? 1 : 0) - (Input.down('KeyS') ? 1 : 0);
   var s = (Input.down('KeyA') ? 1 : 0) - (Input.down('KeyD') ? 1 : 0);
+  /* 터치 조이스틱 입력을 합친다 */
+  if (TouchIn.on && (TouchIn.mx || TouchIn.my)) { f = TouchIn.my; s = -TouchIn.mx; }
   p.moveForward = f; p.moveStrafe = s;
-  p.jumping = Input.down('Space');
-  p.sneaking = Input.down('ShiftLeft') || Input.down('ShiftRight');
-  if ((Input.down('ControlLeft') || Input.sprintTap) && f > 0 && !p.sneaking && p.food > 6 && !p.eating && !p.blocking)
+  p.jumping = Input.down('Space') || TouchIn.jump;
+  /* Shift/Ctrl 역할은 설정에서 바꿀 수 있다 (기본: Shift=웅크리기, Ctrl=달리기) */
+  var kShift = Input.down('ShiftLeft') || Input.down('ShiftRight');
+  var kCtrl = Input.down('ControlLeft') || Input.down('ControlRight');
+  var wantSneak = this.settings.shiftSprint ? kCtrl : kShift;
+  var wantSprint = this.settings.shiftSprint ? kShift : kCtrl;
+  p.sneaking = wantSneak || TouchIn.sneak;
+  if ((wantSprint || Input.sprintTap || TouchIn.sprint) && f > 0 && !p.sneaking && p.food > 6 && !p.eating && !p.blocking)
     p.sprinting = true;
   if (f <= 0) Input.sprintTap = false;
 
@@ -4989,6 +5083,10 @@ Game.readInput = function () {
     /* AutoClicker */
     else if (M.autoAtk && Input.mouseDown[0] && !p.blocking && !p.eating && cpsOk) this.doAttack();
   }
+
+  /* 터치 : 공격 버튼을 누르고 있으면 쿨다운이 찰 때마다 자동으로 휘두른다 */
+  if (TouchIn.attackHeld && !p.blocking && !p.eating &&
+      (COMBAT.mode === 19 ? p.attackStrength(0.5) >= 0.98 : p.ticksSinceSwing >= 3)) this.doAttack();
 
   /* 자동 공격 옵션 */
   if (!M && this.settings.autoAtk && Input.mouseDown[0] && !p.blocking && !p.eating) {
@@ -5146,7 +5244,19 @@ function loop(ts) {
 
   _fpsN++; if (ts - _fpsT > 500) { Game.fps = Math.round(_fpsN * 1000 / (ts - _fpsT)); _fpsN = 0; _fpsT = ts; Render.autoRes(Game.fps); }
   if (Render.pendingResize) { Render.pendingResize = false; Render.resize(document.getElementById('gl')); HUD.resize(); }
+
+  /* 터치 조작은 실제 플레이 중에만 보이게 (메뉴/일시정지/핵 창 위에 겹치지 않도록) */
+  var tEl = TouchIn.on ? document.getElementById('touch') : null;
+  if (tEl) {
+    var show = Game.state === 'play' && !Game.paused && !_hackPanelOpen && !_hackerPanelOpen;
+    if (show !== _touchShown) {
+      _touchShown = show;
+      tEl.style.display = show ? 'block' : 'none';
+    }
+    if (show && ++_tbarT > 15) { _tbarT = 0; buildTouchBar(); }
+  }
 }
+var _touchShown = false, _tbarT = 0;
 
 /* =====================================================================
    UI
@@ -5217,7 +5327,7 @@ function menuHTML() {
     '<div class="row"><button class="mcbtn small" id="btnSet">설정</button><button class="mcbtn small" id="btnKeys">조작법</button></div>' +
     '<div class="hint">클릭해서 마우스를 잠그면 시작합니다 · ESC 로 일시정지<br>' +
     '공격 쿨다운·무적시간·넉백·방어구 감소 공식은 <b>바닐라 그대로</b>, 거기에 궁극기가 얹혔습니다</div>' +
-    (isTouchOnly() ? '<div class="hint" style="color:#ffb35c">이 게임은 마우스와 키보드가 필요합니다. PC 에서 플레이해 주세요.</div>' : '');
+    (isTouchOnly() ? '<div class="hint" style="color:#7dff9b">📱 모바일 터치 조작이 켜져 있습니다 · <b>가로 화면</b>을 권장합니다</div>' : '');
 }
 
 function showMenu() {
@@ -5493,6 +5603,8 @@ function showSettings(back) {
     '<div class="lab">토글</div><div class="grid2" id="tg"></div>' +
     '<button class="mcbtn" id="btnBack" style="margin-top:16px">돌아가기</button>', true);
   var toggles = [
+    ['shiftSprint', 'Shift 달리기', 'Shift=달리기 / Ctrl=웅크리기', 'Shift=웅크리기 / Ctrl=달리기'],
+    ['touchUI', '모바일 터치 조작', '화면 버튼 표시', '키보드+마우스'],
     ['bob', '시야 흔들림'], ['dmgNum', '데미지 표시'], ['indicator', '공격 쿨다운 바'],
     ['autoAtk', '자동 공격'], ['invY', '마우스 Y 반전'], ['sound', '효과음'], ['debug', '디버그(F3)'],
     ['dynRes', '동적 해상도(성능)'], ['shadows', '바닥 그림자'],
@@ -5501,12 +5613,14 @@ function showSettings(back) {
   var tg = $('#tg');
   toggles.forEach(function (t) {
     var b = document.createElement('div');
+    function lbl() { return S[t[0]] ? (t[2] || '켜짐') : (t[3] || '꺼짐'); }
     b.className = 'opt' + (S[t[0]] ? ' sel' : '');
-    b.innerHTML = '<div class="t">' + t[1] + '</div><div class="d">' + (S[t[0]] ? '켜짐' : '꺼짐') + '</div>';
+    b.innerHTML = '<div class="t">' + t[1] + '</div><div class="d">' + lbl() + '</div>';
     b.onclick = function () {
       S[t[0]] = !S[t[0]]; Snd.click();
       b.className = 'opt' + (S[t[0]] ? ' sel' : '');
-      b.querySelector('.d').textContent = S[t[0]] ? '켜짐' : '꺼짐';
+      b.querySelector('.d').textContent = lbl();
+      if (t[0] === 'touchUI') setTouchMode(S.touchUI);
     };
     tg.appendChild(b);
   });
@@ -5526,15 +5640,29 @@ function showSettings(back) {
 }
 
 function showKeys(back) {
+  var ss = Game.settings.shiftSprint;
   var rows = [
-    ['이동', 'W A S D'], ['점프', 'Space'], ['웅크리기', 'Shift'], ['달리기', 'Ctrl 또는 W 더블탭'],
+    ['이동', 'W A S D'], ['점프', 'Space'],
+    ['웅크리기', ss ? 'Ctrl' : 'Shift'],
+    ['달리기', (ss ? 'Shift' : 'Ctrl') + ' 또는 W 더블탭'],
     ['공격', '좌클릭'], ['방패/검 막기 · 먹기', '우클릭'], ['아이템 선택', '1 ~ 9 / 휠'],
+    ['핵 클라이언트', 'Z'], ['해커 모드', 'X'],
     ['시점 전환', 'F5'], ['디버그 정보', 'F3'], ['일시정지', 'ESC']
   ];
   var hot = [['검기 발사', 'Q'], ['격노 발동', 'F'], ['황금사과 (길게)', 'R / 2+우클릭'], ['엔더 진주', '3 + 우클릭']];
-  var h = '<h2>조작법</h2><div class="keys">';
+  var touch = [
+    ['이동', '왼쪽 조이스틱'], ['시점', '오른쪽 화면 드래그'],
+    ['웅크리기 / 달리기', '웅크 버튼 짧게 / 길게'], ['아이템', '하단 슬롯 탭']
+  ];
+  var h = '<h2>조작법</h2>' +
+    '<div class="hint" style="margin:0 0 12px">Shift 달리기는 <b>설정 → Shift 달리기</b> 에서 켤 수 있습니다' +
+    (ss ? ' <b style="color:#7dff9b">(현재 켜짐)</b>' : '') + '</div>' +
+    '<div class="keys">';
   hot.forEach(function (r) { h += '<div class="hot"><span>' + r[0] + '</span><kbd>' + r[1] + '</kbd></div>'; });
   rows.forEach(function (r) { h += '<div><span>' + r[0] + '</span><kbd>' + r[1] + '</kbd></div>'; });
+  h += '</div>' +
+    '<div class="lab">모바일 (터치)</div><div class="keys">';
+  touch.forEach(function (r) { h += '<div><span>' + r[0] + '</span><kbd>' + r[1] + '</kbd></div>'; });
   h += '</div>' +
     '<div class="lab">전투 판정 요약</div>' +
     '<div class="kv"><span>공격 사거리</span><b>3.0 블록 (눈 → 히트박스 레이캐스트)</b></div>' +
@@ -5609,8 +5737,188 @@ function showResults() {
    입력 바인딩 / 부팅
    ===================================================================== */
 function requestLock() {
+  if (TouchIn.on) { Input.locked = true; return; }   // 터치 모드는 포인터 잠금이 필요 없다
   var cv = document.getElementById('gl');
   if (cv.requestPointerLock) cv.requestPointerLock();
+}
+
+/* =====================================================================
+   모바일 터치 조작
+   ===================================================================== */
+function setTouchMode(on) {
+  TouchIn.on = !!on;
+  var el = document.getElementById('touch');
+  if (el) { el.classList.toggle('on', TouchIn.on); el.style.display = ''; }
+  _touchShown = false;
+  if (TouchIn.on) {
+    Input.locked = true;
+    if (document.exitPointerLock) document.exitPointerLock();
+    buildTouchBar();
+  } else {
+    TouchIn.mx = TouchIn.my = 0;
+    TouchIn.jump = TouchIn.sneak = TouchIn.sprint = false;
+    TouchIn.attackHeld = TouchIn.useHeld = false;
+  }
+}
+
+/* 핫바 : 실제로 쓰는 슬롯만 큼직한 버튼으로 */
+function buildTouchBar() {
+  var bar = document.getElementById('tbar');
+  if (!bar || !Game.player) return;
+  var items = Game.hotbar ? Game.hotbar() : [];
+  var icons = ['🗡', '🍎', '🔮', '⚓'];
+  var html = '';
+  for (var i = 0; i < 4; i++) {
+    var it = items[i];
+    if (!it) continue;
+    html += '<div class="tslot' + (Game.player.slot === i ? ' tsel' : '') + '" data-slot="' + i + '">' +
+      icons[i] + (it.count > 1 ? '<b>' + it.count + '</b>' : '') + '</div>';
+  }
+  bar.innerHTML = html;
+  bar.querySelectorAll('[data-slot]').forEach(function (d) {
+    d.addEventListener('touchstart', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      selectSlot(parseInt(this.getAttribute('data-slot'), 10));
+      buildTouchBar();
+    }, { passive: false });
+    d.addEventListener('mousedown', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      selectSlot(parseInt(this.getAttribute('data-slot'), 10));
+      buildTouchBar();
+    });
+  });
+}
+
+function bindTouch() {
+  var stick = document.getElementById('tstick');
+  var base = document.getElementById('tstickBase');
+  var knob = document.getElementById('tstickKnob');
+  var look = document.getElementById('tlook');
+  if (!stick) return;
+  var R = 52;   // 조이스틱 반경(px)
+  var cx = 0, cy = 0;
+
+  function stickStart(t) {
+    TouchIn.stickId = t.identifier;
+    var r = base.getBoundingClientRect();
+    cx = r.left + r.width / 2; cy = r.top + r.height / 2;
+    base.style.opacity = '1';
+    stickMove(t);
+  }
+  function stickMove(t) {
+    var dx = t.clientX - cx, dy = t.clientY - cy;
+    var d = Math.sqrt(dx * dx + dy * dy) || 1;
+    var k = Math.min(1, d / R);
+    var nx = dx / d * k, ny = dy / d * k;
+    knob.style.transform = 'translate(' + (nx * R) + 'px,' + (ny * R) + 'px)';
+    /* 데드존 + 8방향 감각을 위해 살짝 양자화 */
+    TouchIn.mx = Math.abs(nx) > 0.28 ? clamp(nx * 1.6, -1, 1) : 0;
+    TouchIn.my = Math.abs(ny) > 0.28 ? clamp(-ny * 1.6, -1, 1) : 0;
+  }
+  function stickEnd() {
+    TouchIn.stickId = -1; TouchIn.mx = TouchIn.my = 0;
+    knob.style.transform = 'translate(0,0)';
+    base.style.opacity = '.75';
+  }
+
+  stick.addEventListener('touchstart', function (e) {
+    e.preventDefault();
+    if (TouchIn.stickId < 0) stickStart(e.changedTouches[0]);
+  }, { passive: false });
+
+  look.addEventListener('touchstart', function (e) {
+    e.preventDefault();
+    if (TouchIn.lookId < 0) {
+      var t = e.changedTouches[0];
+      TouchIn.lookId = t.identifier; TouchIn.lookX = t.clientX; TouchIn.lookY = t.clientY;
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchmove', function (e) {
+    if (!TouchIn.on) return;
+    for (var i = 0; i < e.changedTouches.length; i++) {
+      var t = e.changedTouches[i];
+      if (t.identifier === TouchIn.stickId) { e.preventDefault(); stickMove(t); }
+      else if (t.identifier === TouchIn.lookId) {
+        e.preventDefault();
+        var p = Game.player;
+        if (p && !p.dead) {
+          var f = Game.settings.sens * 0.6 + 0.2, f1 = f * f * f * 8;
+          p.yaw = wrapDeg(p.yaw + (t.clientX - TouchIn.lookX) * f1 * 0.42);
+          p.pitch = clamp(p.pitch + (t.clientY - TouchIn.lookY) * f1 * 0.42 * (Game.settings.invY ? -1 : 1), -90, 90);
+        }
+        TouchIn.lookX = t.clientX; TouchIn.lookY = t.clientY;
+      }
+    }
+  }, { passive: false });
+
+  function endTouch(e) {
+    for (var i = 0; i < e.changedTouches.length; i++) {
+      var id = e.changedTouches[i].identifier;
+      if (id === TouchIn.stickId) stickEnd();
+      if (id === TouchIn.lookId) TouchIn.lookId = -1;
+    }
+  }
+  document.addEventListener('touchend', endTouch);
+  document.addEventListener('touchcancel', endTouch);
+
+  /* --- 버튼 : 누르는 동안 유지되는 것들 --- */
+  function hold(id, onDown, onUp) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    function down(e) { e.preventDefault(); e.stopPropagation(); el.classList.add('tdown'); onDown(); }
+    function up(e) { if (e) { e.preventDefault(); e.stopPropagation(); } el.classList.remove('tdown'); if (onUp) onUp(); }
+    el.addEventListener('touchstart', down, { passive: false });
+    el.addEventListener('touchend', up, { passive: false });
+    el.addEventListener('touchcancel', up, { passive: false });
+    el.addEventListener('mousedown', down);
+    el.addEventListener('mouseup', up);
+    el.addEventListener('mouseleave', function () { el.classList.remove('tdown'); if (onUp) onUp(); });
+  }
+
+  hold('tAtk', function () { TouchIn.attackHeld = true; Input.mouseDown[0] = true; Game.doAttack(); },
+               function () { TouchIn.attackHeld = false; Input.mouseDown[0] = false; });
+  hold('tUse', function () { TouchIn.useHeld = true; Game.player.startUse(); },
+               function () { TouchIn.useHeld = false; Game.player.stopUse(); });
+  hold('tJump', function () { TouchIn.jump = true; }, function () { TouchIn.jump = false; });
+  hold('tQ', function () { Game.tryBeam(); });
+  hold('tF', function () { Game.tryRage(); });
+
+  /* 웅크리기 : 짧게 누르면 웅크리기 토글, 길게 누르면 달리기 */
+  var sneakEl = document.getElementById('tSneak'), sneakT = 0, sneakLong = false;
+  function sneakDown(e) {
+    e.preventDefault(); e.stopPropagation();
+    sneakLong = false;
+    sneakT = setTimeout(function () {
+      sneakLong = true; TouchIn.sneak = false; TouchIn.sprint = true;
+      sneakEl.classList.add('tlock');
+    }, 260);
+    TouchIn.sneak = true; sneakEl.classList.add('tdown');
+  }
+  function sneakUp(e) {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    clearTimeout(sneakT);
+    TouchIn.sneak = false; TouchIn.sprint = false;
+    sneakEl.classList.remove('tdown'); sneakEl.classList.remove('tlock');
+  }
+  if (sneakEl) {
+    sneakEl.addEventListener('touchstart', sneakDown, { passive: false });
+    sneakEl.addEventListener('touchend', sneakUp, { passive: false });
+    sneakEl.addEventListener('touchcancel', sneakUp, { passive: false });
+    sneakEl.addEventListener('mousedown', sneakDown);
+    sneakEl.addEventListener('mouseup', sneakUp);
+  }
+
+  /* 상단 유틸 */
+  function tap(id, fn) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('touchstart', function (e) { e.preventDefault(); e.stopPropagation(); fn(); }, { passive: false });
+    el.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); fn(); });
+  }
+  tap('tPause', function () { if (Game.paused) resumeGame(); else showPause(); });
+  tap('tHackBtn', function () { if (RoomCfg.allowHack) toggleHackPanel(); });
+  tap('tHackerBtn', function () { if (RoomCfg.allowHacker) toggleHackerPanel(); });
 }
 
 function bindInput() {
@@ -5649,6 +5957,7 @@ function bindInput() {
   });
 
   cv.addEventListener('mousedown', function (e) {
+    if (TouchIn.on) return;                  // 터치 모드에선 화면 버튼이 담당
     if (!Input.locked) {
       if (_hackPanelOpen || _hackerPanelOpen) {
         if (_hackPanelOpen) toggleHackPanel();
@@ -5669,7 +5978,7 @@ function bindInput() {
   });
   document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   document.addEventListener('mousemove', function (e) {
-    if (!Input.locked) return;
+    if (!Input.locked || TouchIn.on) return;
     var p = Game.player;
     if (!p || p.dead) return;
     var f = Game.settings.sens * 0.6 + 0.2, f1 = f * f * f * 8;
@@ -5684,6 +5993,7 @@ function bindInput() {
   }, { passive: false });
 
   document.addEventListener('pointerlockchange', function () {
+    if (TouchIn.on) { Input.locked = true; return; }
     Input.locked = (document.pointerLockElement === cv);
     if (!Input.locked) {
       Input.mouseDown[0] = Input.mouseDown[2] = false;
@@ -5706,6 +6016,7 @@ function selectSlot(i) {
   p.slot = i; p.stopUse();
   Game.equipAnim = 1; Game.itemNameTime = 40;
   if (Game.settings.sound) Snd.pop();
+  if (TouchIn.on) buildTouchBar();
 }
 
 /* =====================================================================
@@ -5928,6 +6239,10 @@ function boot() {
           Render.fov = Game.settings.fov;
           Snd.setVol(Game.settings.vol);
           bindInput();
+          bindTouch();
+          /* 터치 기기면 모바일 조작을 자동으로 켠다 */
+          if (Game.settings.touchUI === null) Game.settings.touchUI = isTouchOnly();
+          setTouchMode(Game.settings.touchUI);
           loadEl.style.display = 'none';
           showMenu();
           requestAnimationFrame(loop);
