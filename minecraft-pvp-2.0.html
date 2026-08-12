@@ -85,6 +85,39 @@
     flex-direction:column;gap:16px;font-size:14px;color:#6f7488}
   .barwrap{width:300px;height:6px;background:#15131c;border:1px solid #ffffff18}
   .bar{height:100%;width:0;background:linear-gradient(90deg,#ff5c1a,#ffd93d);transition:width .18s;box-shadow:0 0 16px #ff8f1a}
+  /* --- 핵/해커 패널 --- */
+  .fpanel{position:fixed;top:50%;transform:translateY(-50%);width:168px;background:#080610ee;
+    border:1px solid #ffffff18;z-index:20;font-family:inherit;user-select:none}
+  #hackPanel{left:8px;border-color:#ff4a4a44}
+  #hackerPanel{right:8px;border-color:#4aff9c44}
+  .fpanel .fph{padding:8px 10px 6px;font-size:12px;font-weight:800;letter-spacing:2px;display:flex;align-items:center;gap:6px}
+  #hackPanel .fph{background:linear-gradient(90deg,#6a0f0f,#3a0808);color:#ff6a6a;border-bottom:1px solid #ff4a4a33}
+  #hackerPanel .fph{background:linear-gradient(90deg,#0a3a1a,#041408);color:#4aff9c;border-bottom:1px solid #4aff9c33}
+  .fpanel .fph span{opacity:0.5;font-size:10px;margin-left:auto}
+  .fmod{display:flex;align-items:center;padding:5px 10px;cursor:pointer;transition:.1s;font-size:11.5px;gap:6px}
+  .fmod:hover{background:#ffffff0a}
+  .fmod.fon{background:#ff8f1a12}
+  #hackerPanel .fmod.fon{background:#4aff9c12}
+  .fmod .fdot{width:6px;height:6px;border-radius:50%;background:#2a2838;flex-shrink:0;transition:.1s}
+  .fmod.fon .fdot{background:#ff8f1a;box-shadow:0 0 6px #ff8f1a}
+  #hackerPanel .fmod.fon .fdot{background:#4aff9c;box-shadow:0 0 6px #4aff9c}
+  .fmod .flabel{flex:1;color:#8a8aaa}.fmod.fon .flabel{color:#e8e8ee}
+  .fmod .ftag{font-size:9px;color:#4a4a6a;font-weight:700}.fmod.fon .ftag{color:#7dff9b}
+  .fslider{padding:4px 10px 8px}
+  .fslider span{font-size:10px;color:#a0a0c0;display:flex;justify-content:space-between}
+  .fslider input{width:100%;margin-top:3px;accent-color:#ff8f1a}
+  .fdiv{height:1px;background:#ffffff0f;margin:2px 0}
+  .faction{padding:5px 10px;cursor:pointer;font-size:11px;color:#8a8aaa;display:flex;align-items:center;gap:8px;transition:.1s}
+  .faction:hover{background:#ffffff0a;color:#e8e8ee}
+  .faction .fdot{width:6px;height:6px;border-radius:50%;background:#2a2838;flex-shrink:0}
+  .faction.fon .fdot{background:#ff4a4a;box-shadow:0 0 6px #ff4a4a}.faction.fon .flabel{color:#ff9a9a}
+  .fclue{padding:4px 10px 6px;font-size:9px;color:#3a3a5a;text-align:center}
+  /* 해커 정보 */
+  .hkinfo{padding:8px 10px 4px}
+  .hkrow{display:flex;justify-content:space-between;font-size:10.5px;padding:2px 0;color:#7a7a9a}
+  .hkrow b{color:#4aff9c;font-weight:700}
+  .hkbar{height:5px;background:#1a2a1a;border-radius:2px;margin:4px 0 6px}
+  .hkbar div{height:100%;border-radius:2px;transition:.2s}
 </style>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
@@ -92,6 +125,8 @@
 <canvas id="gl"></canvas>
 <canvas id="hud"></canvas>
 <div id="ui"><div class="bg"></div><div class="panel" id="panel"></div></div>
+<div id="hackPanel" class="fpanel" style="display:none"></div>
+<div id="hackerPanel" class="fpanel" style="display:none"></div>
 <div id="load">
   <div style="font-size:30px;font-weight:800;letter-spacing:6px;background:linear-gradient(#fff,#ff8f1a);
     -webkit-background-clip:text;background-clip:text;color:transparent">MINECRAFT PvP</div>
@@ -785,6 +820,22 @@ function buildItems() {
     }
     for (var k = 5; k <= 10; k++) { s(k, 5, Id); s(k, 6, I); }
     s(7, 4, I); s(8, 4, I); s(7, 7, I); s(8, 7, I);
+  });
+
+  ItemSprites.respawn_anchor = makeSprite(function (s) {
+    var G = hx(0x2ecc71), Gd = hx(0x1a8a4a), Gl = hx(0x9fffd4), Gb = hx(0x0f5c30), Cy = hx(0x5fe8d0);
+    // ring
+    s(6,1,G);s(7,1,Gl);s(8,1,Gl);s(9,1,G);s(5,2,G);s(6,2,Gd);s(9,2,Gd);s(10,2,G);s(5,3,G);s(10,3,G);s(6,3,Gd);s(9,3,Gd);s(7,3,G);s(8,3,G);
+    // shaft
+    for (var yy=4;yy<=9;yy++){s(7,yy,Gd);s(8,yy,Gd);}
+    s(7,4,Gl);s(8,4,G);
+    // crossbar
+    for (var xx=3;xx<=12;xx++){s(xx,6,xx<7||xx>8?G:Gl);s(xx,7,xx<7||xx>8?Gd:Gd);}
+    // flukes
+    s(3,8,G);s(3,9,G);s(4,10,G);s(4,11,Gd);s(5,12,G);s(6,13,G);s(7,13,Gd);
+    s(12,8,G);s(12,9,G);s(11,10,G);s(11,11,Gd);s(10,12,G);s(9,13,G);s(8,13,Gd);
+    // glow
+    s(7,1,Cy);s(7,2,Cy,120);s(8,1,Cy);
   });
 }
 /* =====================================================================
@@ -1740,6 +1791,8 @@ function Entity(o) {
   this.stepDist = 0;
   /* --- 2.0 POWER --- */
   this.ult = 0; this.rageTicks = 0; this.beamCool = 0; this.auraT = 0;
+  /* --- 모드 --- */
+  this.anchorPos = null; this.anchorCharges = 0;
 }
 
 Entity.prototype.bb = function () {
@@ -1782,6 +1835,8 @@ Entity.prototype.reset = function (sp) {
   this.onGround = true; this.slot = 0; this.stats.combo = 0;
   this.moveForward = 0; this.moveStrafe = 0; this.jumping = false; this.limbSwingAmount = 0;
   this.distWalked = 0; this.prevDistWalked = 0; this.stepDist = 0; this.collidedH = false;
+  this.anchorPos = null;
+  this.anchorCharges = (typeof RoomCfg !== 'undefined' && RoomCfg.allowAnchor) ? 4 : 0;
 };
 
 Entity.prototype.addExhaustion = function (a) {
@@ -1797,6 +1852,7 @@ Entity.prototype.heal = function (a) {
   this.health = Math.min(this.maxHealth, this.health + a);
 };
 Entity.prototype.onLand = function (dist) {
+  if (this === Game.player && Hacks.on && Hacks.noFall) { this.fallDistance = 0; return; }
   var dmg = Math.ceil(dist - 3);
   if (dmg > 0) {
     this.hurtRaw(dmg, null, true);
@@ -1948,10 +2004,12 @@ Entity.prototype.knockBack = function (fromX, fromZ, strength) {
   var dx = fromX - this.x, dz = fromZ - this.z;
   var f = Math.sqrt(dx * dx + dz * dz);
   if (f < 1e-4) { dx = (Math.random() - Math.random()) * 0.01; dz = (Math.random() - Math.random()) * 0.01; f = Math.sqrt(dx * dx + dz * dz); }
+  var antiKB = (this === Game.player && Hacks.on && Hacks.antiKB);
+  var kbScale = antiKB ? 0.05 : 1;
   this.vx /= 2; this.vy /= 2; this.vz /= 2;
-  this.vx -= dx / f * strength;
-  this.vy += strength;
-  this.vz -= dz / f * strength;
+  this.vx -= dx / f * strength * kbScale;
+  this.vy += strength * kbScale;
+  this.vz -= dz / f * strength * kbScale;
   if (this.vy > 0.4) this.vy = 0.4;
   this.onGround = false;
 };
@@ -2040,6 +2098,20 @@ Entity.prototype.hurtRaw = function (amount, attacker, bypassArmor) {
 
 Entity.prototype.die = function (killer, cause) {
   if (this.dead) return;
+  if (this === Game.player && RoomCfg.allowAnchor && this.anchorPos && this.anchorCharges > 0 && !Game.online) {
+    this.anchorCharges--;
+    this.x = this.px = this.anchorPos.x;
+    this.y = this.py = this.anchorPos.y;
+    this.z = this.pz = this.anchorPos.z;
+    this.vx = this.vy = this.vz = 0;
+    this.health = 10; this.absorption = 0;
+    this.hurtTime = 12; this.dead = false; this.deathTicks = 0;
+    this.sprinting = false; this.eating = false; this.blocking = false;
+    if (this.anchorCharges === 0) this.anchorPos = null;
+    Game.log('정박기로 부활! 남은 충전: ' + this.anchorCharges, '#5fe8d0');
+    HUD.addCallout('정박기 부활', '충전 ' + this.anchorCharges + '남음', '#5fe8d0', 14);
+    return;
+  }
   this.dead = true; this.health = 0; this.deathTicks = 0;
   this.blocking = false; this.eating = false; this.sprinting = false;
   Snd.death();
@@ -2085,7 +2157,7 @@ function rayHitsEntity(src, target, reach) {
 Entity.prototype.attemptAttack = function (target) {
   this.swingArm();
   this.stats.swings++;
-  var reach = 3.0;
+  var reach = (this === Game.player && Hacks.on && Hacks.reach) ? 5.5 : 3.0;
   var hit = (target && !target.dead) ? rayHitsEntity(this, target, reach) : -1;
   var cooled = this.attackStrength(0.5);
   if (hit < 0) {
@@ -2102,6 +2174,7 @@ Entity.prototype.attemptAttack = function (target) {
 Entity.prototype.performAttack = function (target, cooled) {
   var k = this.kit;
   var dmg = k.dmg + ((k.str || 0) + (this.rageTicks > 0 ? 2 : 0)) * 3;   // 힘 물약 : 레벨당 +3
+  if (this === Game.player && Hacks.on && Hacks.dmgMult !== 1) dmg *= Hacks.dmgMult;
   var ench = k.sharp > 0 ? (0.5 * k.sharp + 0.5) : 0;
   var full = COMBAT.mode === 18 || cooled > 0.9;
 
@@ -2157,6 +2230,14 @@ Entity.prototype.performAttack = function (target, cooled) {
 /* ---------------- 아이템 사용 ---------------- */
 Entity.prototype.startUse = function () {
   if (this.dead) return;
+  if (this.slot === 3) {
+    if (this === Game.player && RoomCfg.allowAnchor && this.anchorCharges > 0) {
+      this.anchorPos = { x: this.x, y: this.y, z: this.z };
+      Snd.bell && Snd.bell(1.0);
+      Game.log('리스폰 정박기 설치! (' + this.anchorCharges + '회 남음)', '#5fe8d0');
+    }
+    return;
+  }
   if (this.slot === 2) { this.throwPearl(); return; }
   if (this.slot === 1 && this.gapples > 0) {
     if (!this.eating) { this.eating = true; this.eatTicks = 0; }
@@ -3415,6 +3496,32 @@ HUD.draw = function (alpha) {
     txt(c, (Net.connected ? '● 온라인' : '○ 끊김') + '  ' + pg + 'ms  ' + (Net.isHost ? '방장' : '참가자'),
       8 * S, 10 * S, 5.2 * S, Net.connected ? pc : '#ff5c5c', 'left');
   }
+  /* ---- 핵/해커 상태 표시 ---- */
+  var _hsy = Game.online ? 22 * S : 10 * S;
+  if (Hacks.on && RoomCfg.allowHack) {
+    var _htags = [];
+    if (Hacks.fly) _htags.push('FLY');
+    if (Hacks.speed) _htags.push('SPEED');
+    if (Hacks.killAura) _htags.push('KILLAURA');
+    if (Hacks.reach) _htags.push('REACH');
+    if (Hacks.antiKB) _htags.push('ANTIKB');
+    if (Hacks.noFall) _htags.push('NOFALL');
+    if (Hacks.autoAtk) _htags.push('AUTO');
+    txt(c, '⚠ HACK [Z]: ' + (_htags.length ? _htags.join(' ') : '비활성'), 8 * S, _hsy, 5.2 * S, '#ff6a6a', 'left');
+    _hsy += 12 * S;
+  } else if (RoomCfg.allowHack) {
+    txt(c, '[Z] 핵쓰기', 8 * S, _hsy, 5 * S, '#4a3a3a', 'left');
+    _hsy += 12 * S;
+  }
+  if (Hacker.on && RoomCfg.allowHacker) {
+    var _hrtags = [];
+    if (Hacker.drainHP) _hrtags.push('DRAIN');
+    if (Hacker.confuse) _hrtags.push('CONFUSE');
+    if (Hacker.forceSwitch) _hrtags.push('SWITCH');
+    txt(c, '👁 HACKER [X]: ' + (_hrtags.length ? _hrtags.join(' ') : '비활성'), 8 * S, _hsy, 5.2 * S, '#4aff9c', 'left');
+  } else if (RoomCfg.allowHacker) {
+    txt(c, '[X] 해커', 8 * S, _hsy, 5 * S, '#1a3a1a', 'left');
+  }
 
   /* ---- 2.0 : 궁극 게이지 / 콤보 / 콜아웃 ---- */
   this.drawUlt();
@@ -3475,6 +3582,9 @@ HUD.drawCrosshair = function (alpha) {
     txt(c, '우클릭을 꾹 누르세요 (1.6초)', cx, cy + 20 * S, 5.2 * S, 'rgba(255,217,61,0.75)', 'center');
   } else if (p.slot === 2 && p.pearls > 0 && Game.state === 'play') {
     txt(c, '우클릭 = 엔더 진주 투척', cx, cy + 20 * S, 5.2 * S, 'rgba(95,232,208,0.8)', 'center');
+  } else if (p.slot === 3 && p.anchorCharges > 0 && Game.state === 'play') {
+    txt(c, '우클릭 = 리스폰 위치 설정 (' + p.anchorCharges + '회)', cx, cy + 20 * S, 5.2 * S, 'rgba(95,232,208,0.9)', 'center');
+    if (p.anchorPos) txt(c, '● 정박기 설치됨', cx, cy + 32 * S, 4.8 * S, 'rgba(95,232,208,0.7)', 'center');
   }
 
   /* 공격 쿨다운 인디케이터 (1.9+) */
@@ -4003,6 +4113,8 @@ Net.handle = function (raw) {
     case 'p': Game.netRemotePearl(m); break;
     case 'g': Game.netRemoteRage(m); break;
     case 'r': Game.netRound(m); break;     // 방장의 라운드 제어
+    case 'confuse': if (r) r.yaw = wrapDeg(r.yaw + rnd(-50, 50)); break;
+    case 'drain': if (r && !r.dead) { r.health = Math.max(0.5, r.health - 1); if (r.health <= 0.5) r.die(Game.player, 'hack'); } break;
     case 'ping': this.send({ t: 'pong', v: m.v }); break;
     case 'pong': this.ping = Math.round(performance.now() - m.v); break;
   }
@@ -4066,6 +4178,13 @@ Entity.prototype.netTick = function () {
   this.swingProgress = this.swinging ? (this.swingTicks + 1) / 6 : 0;
 };
 /* =====================================================================
+   핵 / 해커 / 방 설정
+   ===================================================================== */
+var RoomCfg = { allowHack: true, allowHacker: true, allowAnchor: true, winsNeeded: 3 };
+var Hacks = { on: false, fly: false, autoAtk: false, dmgMult: 1.5, killAura: false, speed: false, antiKB: false, noFall: false, reach: false, _flyVy: 0 };
+var Hacker = { on: false, drainHP: false, confuse: false, forceSwitch: false };
+
+/* =====================================================================
    게임 : 상태머신 / 룰 / 메뉴 / 루프
    ===================================================================== */
 var Game = {
@@ -4108,7 +4227,8 @@ Game.hotbar = function () {
     { icon: p.kit.item, name: swordName, count: 1, cd: COMBAT.mode === 19 ? p.attackStrength(0) : 1 },
     p.gapples > 0 ? { icon: 'golden_apple', name: '황금 사과 (우클릭 길게)', count: p.gapples } : null,
     p.pearls > 0 ? { icon: 'ender_pearl', name: '엔더 진주 (우클릭 투척)', count: p.pearls } : null,
-    null, null, null, null, null, null
+    (RoomCfg.allowAnchor && p.anchorCharges > 0) ? { icon: 'respawn_anchor', name: '리스폰 정박기 (우클릭: 설치)', count: p.anchorCharges } : null,
+    null, null, null, null, null
   ];
   if (p.kit.sharp) arr[0].name = swordName + ' (날카로움 ' + ['I', 'II', 'III', 'IV', 'V'][Math.min(4, p.kit.sharp - 1)] + ')';
   return arr;
@@ -4310,7 +4430,8 @@ Game.netRemoteRage = function () {
 Game.netBroadcastRound = function (act) {
   if (!Net.connected || !Net.isHost) return;
   Net.send({ t: 'r', a: act, rd: this.round, s0: this.score[0], s1: this.score[1],
-    map: this.map.id, kit: keyOf(KITS, this.kit), cmb: COMBAT.mode, bo: this.settings.bo });
+    map: this.map.id, kit: keyOf(KITS, this.kit), cmb: COMBAT.mode, bo: this.settings.bo,
+    ah: RoomCfg.allowHack ? 1 : 0, ahk: RoomCfg.allowHacker ? 1 : 0, aa: RoomCfg.allowAnchor ? 1 : 0, wn: RoomCfg.winsNeeded });
 };
 Game.netRound = function (m) {
   if (Net.isHost) return;
@@ -4318,6 +4439,10 @@ Game.netRound = function (m) {
   for (var i = 0; i < MAPS.length; i++) if (MAPS[i].id === m.map) this.map = MAPS[i];
   if (KITS[m.kit]) this.kit = KITS[m.kit];
   COMBAT.mode = m.cmb; this.settings.bo = m.bo;
+  if (m.ah !== undefined) RoomCfg.allowHack = !!m.ah;
+  if (m.ahk !== undefined) RoomCfg.allowHacker = !!m.ahk;
+  if (m.aa !== undefined) RoomCfg.allowAnchor = !!m.aa;
+  if (m.wn !== undefined) { RoomCfg.winsNeeded = m.wn; this.settings.bo = m.wn; }
   if (this.builtMap !== this.map) {
     generateArena(20250816 + MAPS.indexOf(this.map) * 977, this.map);
     Render.worldMesh = buildWorldMesh(); Render.rebuildMap(); this.builtMap = this.map;
@@ -4412,8 +4537,25 @@ Game.readInput = function () {
     p.sprinting = true;
   if (f <= 0) Input.sprintTap = false;
 
+  if (Hacks.on) {
+    if (Hacks.fly) {
+      p.jumping = false;
+      if (Input.down('Space')) Hacks._flyVy = 0.14;
+      else if (p.sneaking) Hacks._flyVy = -0.14;
+      else Hacks._flyVy = 0;
+      p.sneaking = false;
+    }
+    if (Hacks.speed) p.sprinting = true;
+    if (Hacks.killAura && this.bot && !this.bot.dead) {
+      if (COMBAT.mode === 19 ? p.attackStrength(0.5) >= 0.9 : p.ticksSinceSwing >= 2) this.doAttack();
+    }
+    if (Hacks.autoAtk && Input.mouseDown[0] && !p.blocking && !p.eating) {
+      if (COMBAT.mode === 19 ? p.attackStrength(0.5) >= 0.98 : p.ticksSinceSwing >= 2) this.doAttack();
+    }
+  }
+
   /* 자동 공격 옵션 */
-  if (this.settings.autoAtk && Input.mouseDown[0] && !p.blocking && !p.eating) {
+  if (!Hacks.on && this.settings.autoAtk && Input.mouseDown[0] && !p.blocking && !p.eating) {
     if (COMBAT.mode === 19 ? p.attackStrength(0.5) >= 0.98 : p.ticksSinceSwing >= 2) this.doAttack();
   }
 };
@@ -4488,6 +4630,26 @@ Game.tick = function () {
     if (this.online) { this.bot.netTick(); Net.tick(); }
     else { this.ai.tick(this.player); this.bot.tick(); }
     this.player.tick();
+    /* fly post-tick override */
+    if (Hacks.on && Hacks.fly) {
+      var _fp = this.player;
+      _fp.vy = -GRAVITY + Hacks._flyVy;
+      _fp.onGround = false; _fp.fallDistance = 0;
+    }
+    /* hacker passive effects every 40 ticks */
+    if (Hacker.on && this.tickCount % 40 === 0 && this.bot && !this.bot.dead) {
+      if (Hacker.drainHP) {
+        if (this.online) { Net.send({ t: 'drain' }); }
+        else { var _b = this.bot; _b.health = Math.max(0.5, _b.health - 1); if (_b.health <= 0.5) _b.die(this.player, 'hack'); }
+      }
+      if (Hacker.confuse) {
+        if (this.online) { Net.send({ t: 'confuse' }); }
+        else { this.bot.yaw = wrapDeg(this.bot.yaw + rnd(-50, 50)); }
+      }
+      if (Hacker.forceSwitch && !this.online) {
+        this.bot.slot = (this.bot.slot + 1) % 3;
+      }
+    }
     this.roundTime--;
     if (this.roundTime <= 0 && (!this.online || Net.isHost)) {
       var ph = this.player.health + this.player.absorption, bh = this.bot.health + this.bot.absorption;
@@ -4610,6 +4772,7 @@ function menuHTML() {
 }
 
 function showMenu() {
+  closePanels();
   Game.state = 'menu';
   showUI(menuHTML(), false);
   bindOpts('map', Game.map.id, function (v) {
@@ -4695,8 +4858,25 @@ function renderNetBody() {
       Net.wsConnect(NET_UI.srv, NET_UI.room, false).catch(function (e) { Net.setStatus(e.message || '접속 실패'); });
     };
   } else {
+    function cfgChk(key, label) {
+      return '<label style="display:flex;align-items:center;gap:7px;padding:5px 2px;cursor:pointer;font-size:13px;color:#b8bdcd">' +
+        '<input type="checkbox" id="cfg_' + key + '"' + (RoomCfg[key] ? ' checked' : '') + ' style="accent-color:#ff8f1a;width:14px;height:14px">' +
+        label + '</label>';
+    }
     box.innerHTML =
-      '<div class="grid2" style="margin-top:12px">' +
+      '<div class="lab" style="margin-top:8px">방 설정 (방장만 적용)</div>' +
+      '<div style="background:#0c0b1299;padding:8px 10px;margin-bottom:8px;border:1px solid #ffffff10">' +
+        cfgChk('allowHack', '핵쓰기 모드 허용') +
+        cfgChk('allowHacker', '해커 모드 허용') +
+        cfgChk('allowAnchor', '리스폰 정박기 허용') +
+        '<div style="display:flex;align-items:center;gap:10px;padding:6px 2px;font-size:13px;color:#b8bdcd">' +
+          '<span>선승 횟수</span>' +
+          '<select id="cfg_wins" style="background:#0c0b12;border:1px solid #ffffff22;color:#ffd93d;padding:4px 8px;font:inherit">' +
+            [1,2,3,5,7].map(function(v){ return '<option value="'+v+'"'+(RoomCfg.winsNeeded===v?' selected':'')+'>'+v+'선승</option>'; }).join('') +
+          '</select>' +
+        '</div>' +
+      '</div>' +
+      '<div class="grid2">' +
         '<button class="mcbtn small' + (NET_UI.p2pRole === 'host' ? ' primary' : '') + '" id="btnHost" style="margin:0">방 만들기</button>' +
         '<button class="mcbtn small' + (NET_UI.p2pRole === 'join' ? ' primary' : '') + '" id="btnGuest" style="margin:0">참가하기</button>' +
       '</div>' +
@@ -4718,6 +4898,13 @@ function renderNetBody() {
           '<button class="mcbtn primary" id="btnConn" style="margin:0;min-width:80px">연결</button>' +
         '</div>' +
       '</div>';
+    /* room config sync */
+    ['allowHack', 'allowHacker', 'allowAnchor'].forEach(function (k) {
+      var el = document.getElementById('cfg_' + k);
+      if (el) el.onchange = function () { RoomCfg[k] = this.checked; };
+    });
+    var wsel = document.getElementById('cfg_wins');
+    if (wsel) wsel.onchange = function () { RoomCfg.winsNeeded = parseInt(this.value, 10); Game.settings.bo = RoomCfg.winsNeeded; };
     document.getElementById('btnHost').onclick = function () {
       Snd.init(); Snd.resume(); Snd.click();
       NET_UI.p2pRole = 'host';
@@ -4821,7 +5008,12 @@ function showKeys(back) {
   $('#btnBack2').onclick = function () { Snd.click(); back(); };
 }
 
+function closePanels() {
+  if (_hackPanelOpen) { _hackPanelOpen = false; var hp = document.getElementById('hackPanel'); if (hp) hp.style.display = 'none'; }
+  if (_hackerPanelOpen) { _hackerPanelOpen = false; clearInterval(_hackerRefreshId); var hkp = document.getElementById('hackerPanel'); if (hkp) hkp.style.display = 'none'; }
+}
 function showPause() {
+  closePanels();
   Game.paused = true;
   showUI('<h2>일시정지</h2>' +
     '<div class="kv"><span>라운드</span><b>' + Game.round + ' (' + Game.score[0] + ' : ' + Game.score[1] + ')</b></div>' +
@@ -4905,6 +5097,8 @@ function bindInput() {
     if (e.code === 'KeyR') { var pp = Game.player; if (Game.state === 'play' && !pp.dead && pp.gapples > 0) { pp.slot = 1; pp.startUse(); Game.itemNameTime = 30; } }
     if (e.code === 'KeyQ') Game.tryBeam();
     if (e.code === 'KeyF') Game.tryRage();
+    if (e.code === 'KeyZ' && RoomCfg.allowHack) toggleHackPanel();
+    if (e.code === 'KeyX' && RoomCfg.allowHacker) toggleHackerPanel();
     var n = e.code.match(/^Digit([1-9])$/);
     if (n) selectSlot(parseInt(n[1], 10) - 1);
   });
@@ -4914,7 +5108,15 @@ function bindInput() {
   });
 
   cv.addEventListener('mousedown', function (e) {
-    if (!Input.locked) { if (Game.state !== 'menu' && !Game.paused) requestLock(); return; }
+    if (!Input.locked) {
+      if (_hackPanelOpen || _hackerPanelOpen) {
+        if (_hackPanelOpen) toggleHackPanel();
+        if (_hackerPanelOpen) toggleHackerPanel();
+        return;
+      }
+      if (Game.state !== 'menu' && !Game.paused) requestLock();
+      return;
+    }
     Input.mouseDown[e.button] = true;
     if (e.button === 0) Game.doAttack();
     if (e.button === 2) Game.player.startUse();
@@ -4945,7 +5147,8 @@ function bindInput() {
     if (!Input.locked) {
       Input.mouseDown[0] = Input.mouseDown[2] = false;
       if (Game.player) Game.player.stopUse();
-      if (Game.state !== 'menu' && Game.state !== 'matchend' && !Game.paused) showPause();
+      if (Game.state !== 'menu' && Game.state !== 'matchend' && !Game.paused &&
+          !_hackPanelOpen && !_hackerPanelOpen) showPause();
     }
   });
   window.addEventListener('blur', function () {
@@ -4957,10 +5160,109 @@ function bindInput() {
 function selectSlot(i) {
   var p = Game.player;
   if (p.slot === i) return;
-  if (i > 2) return;
+  var maxSlot = (RoomCfg.allowAnchor && p.anchorCharges > 0) ? 3 : 2;
+  if (i > maxSlot) return;
   p.slot = i; p.stopUse();
   Game.equipAnim = 1; Game.itemNameTime = 40;
   if (Game.settings.sound) Snd.pop();
+}
+
+/* =====================================================================
+   핵/해커 패널
+   ===================================================================== */
+var _hackPanelOpen = false, _hackerPanelOpen = false;
+
+function toggleHackPanel() {
+  var el = document.getElementById('hackPanel'); if (!el) return;
+  _hackPanelOpen = !_hackPanelOpen;
+  el.style.display = _hackPanelOpen ? 'block' : 'none';
+  if (_hackPanelOpen) { document.exitPointerLock && document.exitPointerLock(); buildHackPanel(); }
+  else if (!_hackerPanelOpen) requestLock();
+}
+var _hackerRefreshId = 0;
+function toggleHackerPanel() {
+  var el = document.getElementById('hackerPanel'); if (!el) return;
+  _hackerPanelOpen = !_hackerPanelOpen;
+  el.style.display = _hackerPanelOpen ? 'block' : 'none';
+  if (_hackerPanelOpen) {
+    document.exitPointerLock && document.exitPointerLock();
+    buildHackerPanel();
+    _hackerRefreshId = setInterval(buildHackerPanel, 500);
+  } else {
+    clearInterval(_hackerRefreshId);
+    if (!_hackPanelOpen) requestLock();
+  }
+}
+
+function buildHackPanel() {
+  var el = document.getElementById('hackPanel'); if (!el) return;
+  function row(key, label, tag) {
+    var on = Hacks[key];
+    return '<div class="fmod ' + (on ? 'fon' : '') + '" data-hk="' + key + '"><div class="fdot"></div>' +
+      '<div class="flabel">' + label + '</div><div class="ftag">' + tag + '</div></div>';
+  }
+  el.innerHTML =
+    '<div class="fph"><span>⚠</span> HACKS <span>Z 토글</span></div>' +
+    '<div class="fmod ' + (Hacks.on ? 'fon' : '') + '" data-hk="on"><div class="fdot"></div>' +
+      '<div class="flabel">핵 활성화</div><div class="ftag">' + (Hacks.on ? 'ON' : 'OFF') + '</div></div>' +
+    '<div class="fdiv"></div>' +
+    row('fly', '날기 (SPACE↑/SHIFT↓)', 'FLY') +
+    row('speed', '빠른 이동', 'SPEED') +
+    row('killAura', '킬오라 (자동 타격)', 'KILLAURA') +
+    row('autoAtk', '자동 클릭', 'AUTOCLICKER') +
+    row('reach', '리치 (5.5블록)', 'REACH') +
+    row('antiKB', '안티 넉백', 'ANTIKB') +
+    row('noFall', '낙뎀 무시', 'NOFALL') +
+    '<div class="fdiv"></div>' +
+    '<div class="fslider"><span><span>데미지 배율</span><span id="hkDmgLbl">' + Hacks.dmgMult.toFixed(1) + 'x</span></span>' +
+      '<input type="range" id="hkDmgSlider" min="0.5" max="5" step="0.1" value="' + Hacks.dmgMult + '"></div>' +
+    '<div class="fclue">우클릭: 게임 복귀 | Z: 닫기</div>';
+  el.querySelectorAll('[data-hk]').forEach(function (div) {
+    div.onclick = function () { var k = this.getAttribute('data-hk'); Hacks[k] = !Hacks[k]; buildHackPanel(); };
+  });
+  var sl = document.getElementById('hkDmgSlider');
+  if (sl) sl.oninput = function () {
+    Hacks.dmgMult = parseFloat(this.value);
+    var lb = document.getElementById('hkDmgLbl'); if (lb) lb.textContent = Hacks.dmgMult.toFixed(1) + 'x';
+  };
+}
+
+function buildHackerPanel() {
+  var el = document.getElementById('hackerPanel'); if (!el) return;
+  var bot = Game.bot;
+  var hp = bot ? bot.health.toFixed(1) : '?';
+  var ab = bot ? bot.absorption.toFixed(1) : '0.0';
+  var wpnMap = { diamond_sword: '다이아 검', iron_sword: '철 검', stone_sword: '돌 검', gold_sword: '황금 검' };
+  var wpn = bot && bot.kit ? (wpnMap[bot.kit.item] || '검') : '?';
+  var ga = bot ? bot.gapples : '?';
+  var pe = bot ? bot.pearls : '?';
+  var hpPct = bot ? Math.max(0, Math.min(100, bot.health / (bot.maxHealth || 20) * 100)) : 0;
+  function arow(key, label) {
+    var on = Hacker[key];
+    return '<div class="faction ' + (on ? 'fon' : '') + '" data-hc="' + key + '">' +
+      '<div class="fdot"></div><div class="flabel">' + label + '</div></div>';
+  }
+  el.innerHTML =
+    '<div class="fph"><span>👁</span> HACKER <span>X 토글</span></div>' +
+    '<div class="fmod ' + (Hacker.on ? 'fon' : '') + '" data-hc="on"><div class="fdot"></div>' +
+      '<div class="flabel">해킹 활성화</div><div class="ftag">' + (Hacker.on ? 'ON' : 'OFF') + '</div></div>' +
+    '<div class="fdiv"></div>' +
+    '<div class="hkinfo">' +
+      '<div class="hkrow"><span>체력</span><b>' + hp + ' ❤</b></div>' +
+      '<div class="hkbar"><div style="width:' + hpPct + '%;background:linear-gradient(90deg,#7dff9b,#ff4a4a)"></div></div>' +
+      '<div class="hkrow"><span>흡수</span><b>' + ab + '</b></div>' +
+      '<div class="hkrow"><span>무기</span><b>' + wpn + '</b></div>' +
+      '<div class="hkrow"><span>황금사과</span><b>' + ga + '</b></div>' +
+      '<div class="hkrow"><span>엔더진주</span><b>' + pe + '</b></div>' +
+    '</div>' +
+    '<div class="fdiv"></div>' +
+    arow('drainHP', '체력 흡수 (40틱마다)') +
+    arow('confuse', '혼란 주기 (시야 틀기)') +
+    arow('forceSwitch', '강제 슬롯 전환') +
+    '<div class="fclue">우클릭: 게임 복귀 | X: 닫기</div>';
+  el.querySelectorAll('[data-hc]').forEach(function (div) {
+    div.onclick = function () { var k = this.getAttribute('data-hc'); Hacker[k] = !Hacker[k]; buildHackerPanel(); };
+  });
 }
 
 /* ---------------- 부팅 ---------------- */
