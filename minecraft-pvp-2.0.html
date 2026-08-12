@@ -86,6 +86,7 @@
   .barwrap{width:300px;height:6px;background:#15131c;border:1px solid #ffffff18}
   .bar{height:100%;width:0;background:linear-gradient(90deg,#ff5c1a,#ffd93d);transition:width .18s;box-shadow:0 0 16px #ff8f1a}
 </style>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
 <body>
 <canvas id="gl"></canvas>
@@ -3872,65 +3873,27 @@ HUD.drawCinematic = function () {
    ===================================================================== */
 var Net = {
   active: false, mode: '', isHost: false, connected: false, ready: false,
-  pc: null, ch: null, ws: null, room: '',
+  peer: null, conn: null, ws: null, room: '',
   myCode: '', status: '', err: '',
   ping: 0, lastPingSent: 0, lastRecv: 0, sendAcc: 0,
   remoteName: '상대', remoteReady: false,
   onStatus: null
 };
 
-var STUN = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:global.stun.twilio.com:3478' }];
-
 Net.setStatus = function (s) { this.status = s; if (this.onStatus) this.onStatus(s); };
-
-/* ---------------- 코드 압축 ---------------- */
-function b64enc(u8) {
-  var s = '';
-  for (var i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
-  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-function b64dec(str) {
-  str = str.replace(/-/g, '+').replace(/_/g, '/').replace(/\s+/g, '');
-  var bin = atob(str), u8 = new Uint8Array(bin.length);
-  for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-  return u8;
-}
-function packCode(obj) {
-  var json = JSON.stringify(obj);
-  var bytes = new TextEncoder().encode(json);
-  if (typeof CompressionStream === 'undefined') return Promise.resolve('R' + b64enc(bytes));
-  var cs = new CompressionStream('deflate-raw');
-  var w = cs.writable.getWriter(); w.write(bytes); w.close();
-  return new Response(cs.readable).arrayBuffer().then(function (buf) {
-    return 'Z' + b64enc(new Uint8Array(buf));
-  });
-}
-function unpackCode(code) {
-  code = (code || '').trim();
-  if (!code) return Promise.reject(new Error('코드가 비어 있습니다'));
-  var tag = code[0], body = code.slice(1);
-  var u8 = b64dec(body);
-  if (tag === 'R') return Promise.resolve(JSON.parse(new TextDecoder().decode(u8)));
-  if (tag !== 'Z') return Promise.reject(new Error('알 수 없는 코드 형식입니다'));
-  var ds = new DecompressionStream('deflate-raw');
-  var w = ds.writable.getWriter(); w.write(u8); w.close();
-  return new Response(ds.readable).arrayBuffer().then(function (buf) {
-    return JSON.parse(new TextDecoder().decode(new Uint8Array(buf)));
-  });
-}
 
 /* ---------------- 공통 ---------------- */
 Net.reset = function () {
-  try { if (this.ch) this.ch.close(); } catch (e) { }
-  try { if (this.pc) this.pc.close(); } catch (e) { }
+  try { if (this.conn) this.conn.close(); } catch (e) { }
+  try { if (this.peer) this.peer.destroy(); } catch (e) { }
   try { if (this.ws) this.ws.close(); } catch (e) { }
-  this.pc = null; this.ch = null; this.ws = null;
+  this.peer = null; this.conn = null; this.ws = null;
   this.active = false; this.connected = false; this.ready = false;
   this.remoteReady = false; this.myCode = ''; this.err = '';
 };
 Net.send = function (o) {
   try {
-    if (this.mode === 'p2p') { if (this.ch && this.ch.readyState === 'open') this.ch.send(JSON.stringify(o)); }
+    if (this.mode === 'p2p') { if (this.conn && this.conn.open) this.conn.send(o); }
     else if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(o));
   } catch (e) { }
 };
@@ -3948,60 +3911,45 @@ Net.onClose = function (why) {
   Game.onNetLost();
 };
 
-/* ---------------- 모드 A : WebRTC P2P ---------------- */
-Net.p2pHost = function () {
+/* ---------------- 모드 A : PeerJS P2P (코드 한 번만 교환) ---------------- */
+Net.peerCreate = function () {
   var self = this;
   this.reset(); this.active = true; this.mode = 'p2p'; this.isHost = true;
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var code = '';
+  for (var i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  this.myCode = code;
   this.setStatus('코드 생성 중...');
-  this.pc = new RTCPeerConnection({ iceServers: STUN });
-  this.ch = this.pc.createDataChannel('g', { ordered: false, maxRetransmits: 0 });
-  this._wireChannel(this.ch);
-  return this.pc.createOffer()
-    .then(function (o) { return self.pc.setLocalDescription(o); })
-    .then(function () { return self._iceDone(); })
-    .then(function () { return packCode({ t: 'o', s: self.pc.localDescription.sdp }); })
-    .then(function (code) { self.myCode = code; self.setStatus('상대에게 코드를 보내세요'); return code; });
+  var peer = new Peer('mcpvp-' + code, { host: '0.peerjs.com', port: 443, secure: true, path: '/' });
+  this.peer = peer;
+  peer.on('open', function () { self.setStatus('대기 중'); });
+  peer.on('connection', function (conn) {
+    if (self.connected) { conn.close(); return; }
+    self.conn = conn; self._wirePeer(conn);
+  });
+  peer.on('error', function (e) { self.err = e.type; self.setStatus('오류: ' + e.type); });
+  return code;
 };
-Net.p2pJoin = function (offerCode) {
+Net.peerJoin = function (code) {
   var self = this;
+  code = (code || '').toUpperCase().replace(/\s+/g, '');
+  if (!code) { this.setStatus('코드를 입력하세요'); return; }
   this.reset(); this.active = true; this.mode = 'p2p'; this.isHost = false;
   this.setStatus('연결 중...');
-  this.pc = new RTCPeerConnection({ iceServers: STUN });
-  this.pc.ondatachannel = function (e) { self.ch = e.channel; self._wireChannel(e.channel); };
-  return unpackCode(offerCode)
-    .then(function (obj) {
-      if (obj.t !== 'o') throw new Error('방장 코드가 아닙니다');
-      return self.pc.setRemoteDescription({ type: 'offer', sdp: obj.s });
-    })
-    .then(function () { return self.pc.createAnswer(); })
-    .then(function (a) { return self.pc.setLocalDescription(a); })
-    .then(function () { return self._iceDone(); })
-    .then(function () { return packCode({ t: 'a', s: self.pc.localDescription.sdp }); })
-    .then(function (code) { self.myCode = code; self.setStatus('응답 코드를 방장에게 보내세요'); return code; });
-};
-Net.p2pAccept = function (answerCode) {
-  var self = this;
-  return unpackCode(answerCode).then(function (obj) {
-    if (obj.t !== 'a') throw new Error('응답 코드가 아닙니다');
-    return self.pc.setRemoteDescription({ type: 'answer', sdp: obj.s });
-  }).then(function () { self.setStatus('연결 수립 중...'); });
-};
-Net._iceDone = function () {
-  var pc = this.pc;
-  if (pc.iceGatheringState === 'complete') return Promise.resolve();
-  return new Promise(function (res) {
-    var done = false;
-    function fin() { if (done) return; done = true; res(); }
-    pc.onicegatheringstatechange = function () { if (pc.iceGatheringState === 'complete') fin(); };
-    setTimeout(fin, 2500);   // 느린 STUN 대비 타임아웃
+  var peer = new Peer({ host: '0.peerjs.com', port: 443, secure: true, path: '/' });
+  this.peer = peer;
+  peer.on('open', function () {
+    var conn = peer.connect('mcpvp-' + code, { reliable: false, serialization: 'json' });
+    self.conn = conn; self._wirePeer(conn);
   });
+  peer.on('error', function (e) { self.err = e.type; self.setStatus('오류: ' + e.type); });
 };
-Net._wireChannel = function (ch) {
+Net._wirePeer = function (conn) {
   var self = this;
-  ch.onopen = function () { self.onOpen(); };
-  ch.onclose = function () { self.onClose(); };
-  ch.onerror = function () { self.err = '데이터 채널 오류'; };
-  ch.onmessage = function (e) { self.handle(e.data); };
+  conn.on('open', function () { self.onOpen(); });
+  conn.on('close', function () { self.onClose(); });
+  conn.on('error', function (e) { self.err = String(e); });
+  conn.on('data', function (data) { self.handle(data); });
 };
 
 /* ---------------- 모드 B : WebSocket 서버 ---------------- */
@@ -4034,7 +3982,7 @@ Net.wsConnect = function (url, room, asHost) {
 
 /* ---------------- 수신 처리 ---------------- */
 Net.handle = function (raw) {
-  var m; try { m = JSON.parse(raw); } catch (e) { return; }
+  var m; try { m = (typeof raw === 'object' && raw !== null) ? raw : JSON.parse(raw); } catch (e) { return; }
   this.lastRecv = performance.now();
   var r = Game.bot;                        // 원격 플레이어는 bot 슬롯을 재사용
   switch (m.t) {
@@ -4685,11 +4633,11 @@ function keyOf(obj, val) { for (var k in obj) if (obj[k] === val) return k; retu
 /* =====================================================================
    온라인 대전 화면
    ===================================================================== */
-var NET_UI = { tab: 'server', srv: '', room: '' };
+var NET_UI = { tab: 'p2p', srv: '', room: '', p2pRole: '' };
 function randRoom() { var c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', r = ''; for (var i = 0; i < 4; i++) r += c[Math.floor(Math.random() * c.length)]; return r; }
 
 function showOnline() {
-  Net.reset();
+  Net.reset(); NET_UI.p2pRole = '';
   var saved = '';
   try { saved = localStorage.getItem('mcpvp_srv') || ''; } catch (e) { }
   if (!NET_UI.srv) NET_UI.srv = saved;
@@ -4703,8 +4651,8 @@ function showOnline() {
     '<div class="lab">접속 방식</div><div class="grid2">' +
       '<div class="opt' + (NET_UI.tab === 'server' ? ' sel' : '') + '" data-g="ntab" data-v="server"><div class="t">서버 방코드</div>' +
         '<div class="d">서버 주소 + 4자리 방코드<br>가장 간편 (서버 필요)</div></div>' +
-      '<div class="opt' + (NET_UI.tab === 'p2p' ? ' sel' : '') + '" data-g="ntab" data-v="p2p"><div class="t">직접 연결 (P2P)</div>' +
-        '<div class="d">서버 없이 코드만 주고받기<br>카톡/디스코드로 붙여넣기</div></div>' +
+      '<div class="opt' + (NET_UI.tab === 'p2p' ? ' sel' : '') + '" data-g="ntab" data-v="p2p"><div class="t">직접 연결 ★추천</div>' +
+        '<div class="d">서버 불필요 — 4자리 코드만 공유<br>가장 간단, 바로 연결 가능</div></div>' +
     '</div><div id="netBody"></div>' +
     '<div class="kv" style="margin-top:14px"><span>상태</span><b id="netStat">대기 중</b></div>' +
     '<button class="mcbtn" id="btnNetBack" style="margin-top:12px">돌아가기</button>';
@@ -4749,38 +4697,61 @@ function renderNetBody() {
   } else {
     box.innerHTML =
       '<div class="grid2" style="margin-top:12px">' +
-        '<button class="mcbtn small" id="btnHost" style="margin:0">방 만들기 (방장)</button>' +
-        '<button class="mcbtn small" id="btnGuest" style="margin:0">참가하기</button>' +
+        '<button class="mcbtn small' + (NET_UI.p2pRole === 'host' ? ' primary' : '') + '" id="btnHost" style="margin:0">방 만들기</button>' +
+        '<button class="mcbtn small' + (NET_UI.p2pRole === 'join' ? ' primary' : '') + '" id="btnGuest" style="margin:0">참가하기</button>' +
       '</div>' +
-      '<div class="lab">1) 내 코드 — 상대에게 보내기</div>' +
-      '<textarea id="myCode" readonly style="' + ta + '" placeholder="위 버튼을 먼저 누르세요"></textarea>' +
-      '<button class="mcbtn small" id="btnCopy">내 코드 복사</button>' +
-      '<div class="lab">2) 상대 코드 — 여기에 붙여넣기</div>' +
-      '<textarea id="peerCode" style="' + ta + '" placeholder="상대가 보낸 코드를 붙여넣으세요"></textarea>' +
-      '<button class="mcbtn primary" id="btnConn" style="margin-top:10px">연결</button>' +
-      '<div class="hint">방장 : 방 만들기 → 내 코드 전달 → 상대 응답코드 붙여넣기 → 연결<br>' +
-      '참가자 : 상대 코드 붙여넣기 → 참가하기 → 생성된 내 코드를 방장에게 전달</div>';
-    var setCode = function (c) { var el = document.getElementById('myCode'); if (el) el.value = c; };
+      '<div id="p2pHostArea" style="display:none;margin-top:14px">' +
+        '<div class="lab">내 방 코드 — 친구에게 알려주세요</div>' +
+        '<div style="display:flex;gap:8px;align-items:center">' +
+          '<div id="myCodeBox" style="flex:1;font-size:36px;font-weight:800;letter-spacing:10px;' +
+            'text-align:center;padding:14px;background:#0c0b12;border:1px solid #ff6a2b55;color:#ffd93d">----</div>' +
+          '<button class="mcbtn small" id="btnCopy" style="margin:0;min-width:72px">복사</button>' +
+        '</div>' +
+        '<div class="hint" style="margin-top:8px">친구가 이 코드를 입력하면 자동으로 연결됩니다.</div>' +
+      '</div>' +
+      '<div id="p2pJoinArea" style="display:none;margin-top:14px">' +
+        '<div class="lab">친구 방 코드 입력</div>' +
+        '<div style="display:flex;gap:8px">' +
+          '<input id="peerCodeIn" maxlength="4" placeholder="XXXX" ' +
+            'style="flex:1;font-size:32px;font-weight:800;letter-spacing:8px;text-align:center;' +
+            'background:#0c0b12;border:1px solid #ffffff22;color:#fff;padding:10px">' +
+          '<button class="mcbtn primary" id="btnConn" style="margin:0;min-width:80px">연결</button>' +
+        '</div>' +
+      '</div>';
     document.getElementById('btnHost').onclick = function () {
       Snd.init(); Snd.resume(); Snd.click();
-      Net.p2pHost().then(setCode).catch(function (e) { Net.setStatus(e.message || '생성 실패'); });
+      NET_UI.p2pRole = 'host';
+      document.getElementById('p2pHostArea').style.display = 'block';
+      document.getElementById('p2pJoinArea').style.display = 'none';
+      var code = Net.peerCreate();
+      document.getElementById('myCodeBox').textContent = code;
     };
     document.getElementById('btnGuest').onclick = function () {
-      Snd.init(); Snd.resume(); Snd.click();
-      var code = document.getElementById('peerCode').value;
-      Net.p2pJoin(code).then(setCode).catch(function (e) { Net.setStatus(e.message || '참가 실패'); });
+      Snd.click(); NET_UI.p2pRole = 'join';
+      document.getElementById('p2pHostArea').style.display = 'none';
+      document.getElementById('p2pJoinArea').style.display = 'block';
+      Net.reset();
     };
     document.getElementById('btnCopy').onclick = function () {
-      var el = document.getElementById('myCode'); el.select();
-      try { navigator.clipboard.writeText(el.value); Net.setStatus('복사했습니다'); }
-      catch (e) { document.execCommand('copy'); }
+      var code = Net.myCode;
+      try { navigator.clipboard.writeText(code); Net.setStatus('복사 완료: ' + code); }
+      catch (e) { Net.setStatus('코드: ' + code); }
     };
     document.getElementById('btnConn').onclick = function () {
-      Snd.click();
-      var code = document.getElementById('peerCode').value;
-      if (Net.isHost) Net.p2pAccept(code).catch(function (e) { Net.setStatus(e.message || '연결 실패'); });
-      else Net.setStatus('참가자는 코드를 방장에게 보내면 자동 연결됩니다');
+      Snd.init(); Snd.resume(); Snd.click();
+      var code = document.getElementById('peerCodeIn').value.trim().toUpperCase();
+      Net.peerJoin(code);
     };
+    /* 키 입력 자동 대문자 */
+    var pci = document.getElementById('peerCodeIn');
+    if (pci) pci.oninput = function () { this.value = this.value.toUpperCase(); };
+    /* 방 만들기 복원 */
+    if (NET_UI.p2pRole === 'host' && Net.myCode) {
+      document.getElementById('p2pHostArea').style.display = 'block';
+      document.getElementById('myCodeBox').textContent = Net.myCode;
+    } else if (NET_UI.p2pRole === 'join') {
+      document.getElementById('p2pJoinArea').style.display = 'block';
+    }
   }
 }
 
