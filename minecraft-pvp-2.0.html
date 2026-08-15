@@ -478,6 +478,8 @@ var Snd = {
     this.noise(0.26, 1400, 0.7, 0.34, 'bandpass', 300);
     for (var i = 0; i < 3; i++) this.noise(0.10, 900 + Math.random() * 1400, 1.2, 0.16, 'bandpass', 200, 0.05 + i * 0.05);
   },
+  place: function () { this.noise(0.07, 460, 1.2, 0.24, 'bandpass'); this.tone(220, 0.05, 0.10, 'square', 300); },
+  breakBlock: function () { this.noise(0.14, 700, 0.8, 0.28, 'bandpass', 240); this.tone(160, 0.09, 0.10, 'square', 90); },
   equip: function () { this.noise(0.08, 620, 1.1, 0.20, 'bandpass'); this.tone(330, 0.07, 0.10, 'square', 440); }
 };
 
@@ -1149,6 +1151,29 @@ function buildItems() {
     't': hx(0x8a6522), 'y': hx(0xffd93d)
   });
 
+  /* 블록 아이콘 : 위/좌/우 3면 아이소메트릭 */
+  ItemSprites.plank_block = makeSprite(function (s) {
+    var TOP = hx(0xc8a165), L = hx(0x9a7844), R = hx(0x7d6036), E = hx(0x5b4526);
+    function grain(x, y, c, k) { return ((x * 3 + y * 5) % 7 === 0) ? [c[0]*k, c[1]*k, c[2]*k] : c; }
+    for (var y = 0; y < 16; y++) for (var x = 0; x < 16; x++) {
+      var cx = x - 7.5, cy = y - 8.0;
+      var u = cx * 0.5 + cy;          // 위쪽 마름모 판정
+      var topD = Math.abs(cx) * 0.5 + Math.abs(cy + 3.6);
+      if (topD <= 4.0 && y <= 8) { s(x, y, grain(x, y, TOP, 0.9)); continue; }
+      if (y > 3 && y < 15) {
+        var half = 4.0 - Math.max(0, (y - 11.5)) * 0.9;
+        var lim = 7.6;
+        if (x >= 1 && x <= 14) {
+          var lowEdge = 11.5 + (x < 8 ? (7.5 - x) * 0.5 : (x - 7.5) * 0.5);
+          var upEdge = 4.4 + (x < 8 ? (7.5 - x) * 0.5 : (x - 7.5) * 0.5);
+          if (y >= upEdge && y <= lowEdge) {
+            var edge = (x <= 1 || x >= 14 || y >= lowEdge - 0.6);
+            s(x, y, edge ? E : grain(x, y, x < 8 ? L : R, 0.88));
+          }
+        }
+      }
+    }
+  });
   ItemSprites.shield = makeSprite(function (s) {
     var W = hx(0x9a6b3f), Wd = hx(0x744f2c), I = hx(0xcfcfcf), Id = hx(0x8a8a8a);
     for (var y = 0; y < 16; y++) for (var x = 0; x < 16; x++) {
@@ -1272,6 +1297,9 @@ function GLMesh(data) {
   gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
   this.n = data.length / FSTRIDE;
 }
+GLMesh.prototype.dispose = function () {
+  if (this.buf) { gl.deleteBuffer(this.buf); this.buf = null; this.n = 0; }
+};
 GLMesh.prototype.bind = function () {
   gl.bindBuffer(gl.ARRAY_BUFFER, this.buf);
   gl.vertexAttribPointer(A.aPos, 3, gl.FLOAT, false, BSTRIDE, 0);
@@ -1404,7 +1432,7 @@ var BLOCKS = [];
   function def(id, top, side, bottom, o) {
     o = o || {};
     BLOCKS[id] = { top: top, side: side, bottom: bottom === undefined ? top : bottom,
-      solid: o.solid !== false, cut: !!o.cut, emit: o.emit || 0 };
+      solid: o.solid !== false, cut: !!o.cut, emit: o.emit || 0, breakable: !!o.breakable };
   }
   BLOCKS[0] = { solid: false, cut: true, emit: 0, top: 0, side: 0, bottom: 0 };
   def(B.BEDROCK, T.BEDROCK, T.BEDROCK);
@@ -1416,11 +1444,11 @@ var BLOCKS = [];
   def(B.SBRICK, T.SBRICK, T.SBRICK);
   def(B.SBRICK_C, T.SBRICK_C, T.SBRICK_C);
   def(B.MOSSBRICK, T.MOSSBRICK, T.MOSSBRICK);
-  def(B.PLANK, T.PLANK, T.PLANK);
-  def(B.DPLANK, T.DPLANK, T.DPLANK);
+  def(B.PLANK, T.PLANK, T.PLANK, undefined, { breakable: true });
+  def(B.DPLANK, T.DPLANK, T.DPLANK, undefined, { breakable: true });
   def(B.LOG, T.LOG_TOP, T.LOG_SIDE);
   def(B.LEAVES, T.LEAVES, T.LEAVES, T.LEAVES, { cut: true });
-  def(B.GLASS, T.GLASS, T.GLASS, T.GLASS, { cut: true });
+  def(B.GLASS, T.GLASS, T.GLASS, T.GLASS, { cut: true, breakable: true });
   def(B.OBSIDIAN, T.OBSIDIAN, T.OBSIDIAN);
   def(B.IRON, T.IRON, T.IRON);
   def(B.GOLD, T.GOLD, T.GOLD);
@@ -1751,10 +1779,103 @@ function buildChunkMesh(ox, oz, size) {
   }
   if (!found || !mb.count()) return null;
   return {
-    mesh: mb.build(),
+    mesh: mb.build(), ox: ox, oz: oz,
     bb: [ox, minY, oz, Math.min(WX, ox + size), maxY + 1, Math.min(WZ, oz + size)]
   };
 }
+
+/* =====================================================================
+   블록 설치 / 파괴 — 바뀐 청크만 다시 메싱한다
+   ===================================================================== */
+function rebuildChunkAt(x, z) {
+  if (!Render.worldMesh) return;
+  var ox = Math.floor(x / CHUNK) * CHUNK, oz = Math.floor(z / CHUNK) * CHUNK;
+  if (ox < 0 || oz < 0 || ox >= WX || oz >= WZ) return;
+  var fresh = buildChunkMesh(ox, oz, CHUNK);
+  for (var i = 0; i < Render.worldMesh.length; i++) {
+    var c = Render.worldMesh[i];
+    if (c.ox === ox && c.oz === oz) {
+      if (c.mesh && c.mesh.dispose) c.mesh.dispose();
+      if (fresh) Render.worldMesh[i] = fresh;
+      else Render.worldMesh.splice(i, 1);
+      return;
+    }
+  }
+  if (fresh) Render.worldMesh.push(fresh);
+}
+/* 블록을 바꾸고, 경계에 걸치면 이웃 청크까지 갱신 */
+function editBlock(x, y, z, id) {
+  if (x < 0 || y < 0 || z < 0 || x >= WX || y >= WY || z >= WZ) return false;
+  if (getBlock(x, y, z) === id) return false;
+  setBlock(x, y, z, id);
+  /* 높이맵 갱신 (그림자용) */
+  var hi = 0;
+  for (var yy = WY - 1; yy >= 0; yy--) { if (getBlock(x, yy, z)) { hi = yy + 1; break; } }
+  heightMap[z * WX + x] = hi;
+  rebuildChunkAt(x, z);
+  if (x % CHUNK === 0) rebuildChunkAt(x - 1, z);
+  if (x % CHUNK === CHUNK - 1) rebuildChunkAt(x + 1, z);
+  if (z % CHUNK === 0) rebuildChunkAt(x, z - 1);
+  if (z % CHUNK === CHUNK - 1) rebuildChunkAt(x, z + 1);
+  return true;
+}
+/* 시선이 닿는 블록 찾기 — 맞은 블록과 그 앞칸(설치 위치)을 돌려준다 */
+function rayBlock(e, maxD) {
+  var lv = e.lookVec();
+  var ox = e.x, oy = e.eyeY(), oz = e.z;
+  var px = -1, py = -1, pz = -1;
+  var step = 0.04, n = Math.ceil((maxD || 4.5) / step);
+  for (var i = 1; i <= n; i++) {
+    var t = i * step;
+    var bx = Math.floor(ox + lv[0] * t), by = Math.floor(oy + lv[1] * t), bz = Math.floor(oz + lv[2] * t);
+    if (bx === px && by === py && bz === pz) continue;
+    if (by < 0 || by >= WY) { px = bx; py = by; pz = bz; continue; }
+    if (isSolidAt(bx, by, bz))
+      return { x: bx, y: by, z: bz, px: px, py: py, pz: pz, dist: t };
+    px = bx; py = by; pz = bz;
+  }
+  return null;
+}
+/* 그 자리에 엔티티가 서 있으면 설치 불가 */
+function blockFreeOfEntities(x, y, z) {
+  for (var i = 0; i < Game.entities.length; i++) {
+    var e = Game.entities[i];
+    if (e.dead) continue;
+    var b = e.bb();
+    if (x + 1 > b.x0 && x < b.x1 && y + 1 > b.y0 && y < b.y1 && z + 1 > b.z0 && z < b.z1) return false;
+  }
+  return true;
+}
+Entity.prototype.placeBlock = function () {
+  if (this.dead || this.blocks <= 0) return false;
+  var hit = rayBlock(this, 4.6);
+  if (!hit || hit.px < 0) return false;
+  if (!blockFreeOfEntities(hit.px, hit.py, hit.pz)) return false;
+  if (getBlock(hit.px, hit.py, hit.pz) !== 0) return false;
+  if (!editBlock(hit.px, hit.py, hit.pz, this.blockId || B.PLANK)) return false;
+  this.blocks--;
+  this.swingArm();
+  Snd.place();
+  burstBlock(hit.px + 0.5, hit.py + 0.5, hit.pz + 0.5, BLOCKS[this.blockId || B.PLANK].side, 3);
+  if (Game.online && Net.connected && this === Game.player)
+    Net.send({ t: 'blk', x: hit.px, y: hit.py, z: hit.pz, b: this.blockId || B.PLANK });
+  return true;
+};
+Entity.prototype.breakBlock = function () {
+  if (this.dead) return false;
+  var hit = rayBlock(this, 4.6);
+  if (!hit) return false;
+  var id = getBlock(hit.x, hit.y, hit.z);
+  if (!id || !BLOCKS[id].breakable) return false;
+  editBlock(hit.x, hit.y, hit.z, 0);
+  this.swingArm();
+  Snd.breakBlock();
+  burstBlock(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5, BLOCKS[id].side, 8);
+  if (this.blocks < 64) this.blocks++;
+  if (Game.online && Net.connected && this === Game.player)
+    Net.send({ t: 'blk', x: hit.x, y: hit.y, z: hit.z, b: 0 });
+  return true;
+};
 
 /* ---------- 하늘 돔 / 구름 ---------- */
 function buildSkyDome() {
@@ -2129,6 +2250,7 @@ function Entity(o) {
   this.kit = KITS.classic; this.gapples = 8; this.pearls = 3; this.pearlCool = 0;
   this.winds = 0; this.fireworks = 0; this.hasMace = false; this.hasElytra = false;
   this.gliding = false; this.windCool = 0; this.fwCool = 0; this.glideT = 0;
+  this.blocks = 0; this.blockId = B.PLANK; this.placeCool = 0;
   this.netQueue = [];
   this.stats = { hits: 0, swings: 0, crits: 0, dmgDealt: 0, dmgTaken: 0, combo: 0, maxCombo: 0, blocked: 0,
     gapples: 0, beams: 0, rages: 0, beamHits: 0 };
@@ -2181,6 +2303,8 @@ Entity.prototype.reset = function (sp) {
   this.winds = Inv.wind ? INV_COUNTS.winds : 0;
   this.fireworks = Inv.firework ? INV_COUNTS.fireworks : 0;
   this.hasMace = !!Inv.mace; this.hasElytra = !!Inv.elytra;
+  this.blocks = Inv.blocks ? INV_COUNTS.blocks : 0;
+  this.blockId = B.PLANK; this.placeCool = 0;
   this.gliding = false; this.windCool = 0; this.fwCool = 0; this.glideT = 0;
   this.sprinting = false; this.sneaking = false; this.pearlCool = 0;
   this.ult = 0; this.rageTicks = 0; this.beamCool = 0;
@@ -2243,6 +2367,7 @@ Entity.prototype.tick = function () {
   if (this.pearlCool > 0) this.pearlCool--;
   if (this.windCool > 0) this.windCool--;
   if (this.fwCool > 0) this.fwCool--;
+  if (this.placeCool > 0) this.placeCool--;
   this.ticksSinceSwing++;
   /* 격노 */
   if (this.rageTicks > 0) {
@@ -2660,6 +2785,7 @@ Entity.prototype.startUse = function () {
   if (key === 'pearl') { this.throwPearl(); return; }
   if (key === 'wind') { this.throwWind(); return; }
   if (key === 'firework') { this.useFirework(); return; }
+  if (key === 'blocks') { this.placeBlock(); return; }
   if (key === 'mace') { this.blocking = false; return; }   // 철퇴는 막기 불가
   if (key === 'gapple' && this.gapples > 0) {
     if (!this.eating) { this.eating = true; this.eatTicks = 0; }
@@ -3592,6 +3718,10 @@ Render.frame = function (alpha) {
   this.drawParticles(alpha);
   this.drawRings(alpha);
 
+  /* ---- 블록을 들고 있으면 조준 중인 칸을 표시 ---- */
+  if (Game.state === 'play' && Game.player && !Game.player.dead && invAt(Game.player.slot) === 'blocks')
+    this.drawBlockCursor();
+
   /* ---- 1인칭 손 ---- */
   if (!this.thirdPerson && !Game.player.dead) this.drawHand(alpha);
 };
@@ -4079,8 +4209,39 @@ function heldIcon(e) {
   if (k === 'mace') return 'mace';
   if (k === 'wind') return 'wind_charge';
   if (k === 'firework') return 'firework';
+  if (k === 'blocks') return 'plank_block';
   return e.kit.item;
 }
+/* 설치/파괴 대상 칸을 반투명 상자로 표시 */
+Render.drawBlockCursor = function () {
+  var p = Game.player;
+  var hit = rayBlock(p, 4.6);
+  if (!hit) return;
+  var place = p.blocks > 0 && hit.px >= 0 && getBlock(hit.px, hit.py, hit.pz) === 0;
+  if (!this.cursorMesh) {
+    var mb = new MB(), uv = tileUV(T.WHITE);
+    var e = 0.503;
+    var V = [[-e,-e,-e],[e,-e,-e],[e,e,-e],[-e,e,-e],[-e,-e,e],[e,-e,e],[e,e,e],[-e,e,e]];
+    var F2 = [[0,3,2,1],[4,5,6,7],[0,1,5,4],[3,7,6,2],[0,4,7,3],[1,2,6,5]];
+    for (var i = 0; i < 6; i++) {
+      var f = F2[i];
+      mb.quad(V[f[0]], V[f[1]], V[f[2]], V[f[3]],
+        (uv[0]+uv[2])/2,(uv[1]+uv[3])/2,(uv[0]+uv[2])/2,(uv[1]+uv[3])/2, 1,1,1,1, 1,1,1, false);
+    }
+    this.cursorMesh = mb.build();
+  }
+  gl.bindTexture(gl.TEXTURE_2D, this.texAtlas);
+  gl.enable(gl.BLEND); gl.depthMask(false); gl.disable(gl.CULL_FACE);
+  gl.uniform1f(U.uCut, 0.0);
+  var t = place ? { x: hit.px, y: hit.py, z: hit.pz } : hit;
+  gl.uniform4f(U.uTint, place ? 0.55 : 1.0, place ? 1.0 : 0.45, place ? 0.75 : 0.35, 1);
+  gl.uniform1f(U.uAlpha, 0.22 + Math.sin(Game.now * 0.006) * 0.06);
+  this.ms.identity().translate(t.x + 0.5, t.y + 0.5, t.z + 0.5);
+  gl.uniformMatrix4fv(U.uModel, false, this.ms.cur);
+  this.cursorMesh.draw();
+  gl.uniform4f(U.uTint, 0, 0, 0, 0); gl.uniform1f(U.uAlpha, 1); gl.uniform1f(U.uCut, 0.35);
+  gl.depthMask(true); gl.enable(gl.CULL_FACE); gl.disable(gl.BLEND);
+};
 Render.drawWinds = function (alpha) {
   if (!winds.length || !ItemMeshes.wind_charge) return;
   gl.bindTexture(gl.TEXTURE_2D, this.texAtlas);
@@ -5000,6 +5161,7 @@ Net.handle = function (raw) {
     case 'b': Game.netRemoteBeam(m); break;
     case 'p': Game.netRemotePearl(m); break;
     case 'w': Game.netRemoteWind(m); break;
+    case 'blk': Game.netRemoteBlock(m); break;
     case 'msg': Game.log('<' + (Net.remoteName || '상대') + '> ' + String(m.m || '').slice(0, 160), '#bfe9ff'); break;
     case 'g': Game.netRemoteRage(m); break;
     case 'r': Game.netRound(m); break;     // 방장의 라운드 제어
@@ -5089,14 +5251,16 @@ var INV_ITEMS = [
     d: '우클릭 투척 → 터지며 주변을 날려버린다 (발밑에 쏘면 자기 점프)' },
   { k: 'firework', slot: 6, n: '폭죽 로켓', icon: 'firework', cnt: 'fireworks',
     d: '겉날개로 활공하는 중 우클릭 → 앞으로 가속' },
+  { k: 'blocks', slot: 7, n: '블록', icon: 'plank_block', cnt: 'blocks',
+    d: '우클릭 설치 · 좌클릭 파괴 — 다리를 놓거나 벽을 세워 막는다' },
   { k: 'elytra', slot: -1, n: '겉날개', icon: 'elytra', cnt: null,
     d: '공중에서 점프 키를 누르면 활공 시작 · 착지하면 자동 해제' },
   { k: 'armor', slot: -1, n: '방어구', icon: null, cnt: null,
     d: '끄면 킷이 주는 방어구가 사라집니다 (알몸 PvP)' }
 ];
-var INV_COUNTS = { winds: 6, fireworks: 12 };
+var INV_COUNTS = { winds: 6, fireworks: 12, blocks: 64 };
 var Inv = { gapple: true, pearl: true, anchor: true, mace: false, wind: false,
-            firework: false, elytra: false, armor: true };
+            firework: false, blocks: false, elytra: false, armor: true };
 /* 슬롯 번호 → 아이템 키 */
 function invAt(slot) {
   for (var i = 0; i < INV_ITEMS.length; i++)
@@ -5250,7 +5414,8 @@ Game.hotbar = function () {
       cd: COMBAT.mode === 19 ? p.attackStrength(0) : 1 } : null,
     (Inv.wind && p.winds > 0) ? { icon: 'wind_charge', name: '바람 충전기 (우클릭 투척)', count: p.winds } : null,
     (Inv.firework && p.fireworks > 0) ? { icon: 'firework', name: '폭죽 로켓 (활공 중 우클릭)', count: p.fireworks } : null,
-    null, null
+    (Inv.blocks && p.blocks > 0) ? { icon: 'plank_block', name: '블록 (우클릭 설치 · 좌클릭 파괴)', count: p.blocks } : null,
+    null
   ];
   if (p.kit.sharp) arr[0].name = swordName + ' (날카로움 ' + ['I', 'II', 'III', 'IV', 'V'][Math.min(4, p.kit.sharp - 1)] + ')';
   return arr;
@@ -5445,6 +5610,12 @@ Game.netRemotePearl = function (m) {
   pearls.push(new Pearl(this.bot, m.x, m.y, m.z, m.dx, m.dy, m.dz));
   Snd.ender();
 };
+Game.netRemoteBlock = function (m) {
+  if (editBlock(m.x, m.y, m.z, m.b | 0)) {
+    if (m.b) { Snd.place(); burstBlock(m.x + 0.5, m.y + 0.5, m.z + 0.5, BLOCKS[m.b].side, 3); }
+    else { Snd.breakBlock(); burstBlock(m.x + 0.5, m.y + 0.5, m.z + 0.5, T.PLANK, 6); }
+  }
+};
 Game.netRemoteWind = function (m) {
   winds.push(new WindCharge(this.bot, m.x, m.y, m.z, m.dx, m.dy, m.dz));
   Snd.windThrow();
@@ -5632,6 +5803,11 @@ Game.readInput = function () {
     else if (M.autoAtk && Input.mouseDown[0] && !p.blocking && !p.eating && cpsOk) this.doAttack();
   }
 
+  /* 블록 : 우클릭을 누르고 있으면 계속 설치 (다리 놓기) */
+  if (invAt(p.slot) === 'blocks' && (Input.mouseDown[2] || TouchIn.useHeld) && p.placeCool === 0) {
+    if (p.placeBlock()) p.placeCool = 4;
+  }
+
   /* 터치 : 공격 버튼을 누르고 있으면 쿨다운이 찰 때마다 자동으로 휘두른다 */
   if (TouchIn.attackHeld && !p.blocking && !p.eating &&
       (COMBAT.mode === 19 ? p.attackStrength(0.5) >= 0.98 : p.ticksSinceSwing >= 3)) this.doAttack();
@@ -5665,6 +5841,12 @@ Game.doAttack = function () {
   var p = this.player;
   if (p.dead || this.state !== 'play' || p.eating) return;
   if (p.blocking) p.blocking = false;
+  /* 블록을 들고 있으면 좌클릭은 블록 파괴 (상대가 사거리 안이면 공격 우선) */
+  if (invAt(p.slot) === 'blocks') {
+    var b = this.bot, near = b && !b.dead &&
+      Math.sqrt((b.x - p.x) * (b.x - p.x) + (b.z - p.z) * (b.z - p.z)) < 3.2;
+    if (!near && p.breakBlock()) return;
+  }
   p.attemptAttack(this.bot);
 };
 
