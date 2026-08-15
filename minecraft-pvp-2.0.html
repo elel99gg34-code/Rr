@@ -261,6 +261,22 @@
   .csug.sel span{color:#9a9ab5}
   #chatHint{font-size:10px;color:#4a4a63;padding:4px 2px 0}
   #chatHint b{color:#7dff9b}
+  /* ===== 배드워즈 상점 ===== */
+  #bwShop{left:50%;top:50%;transform:translate(-50%,-50%);width:min(400px,92vw)}
+  #bwShop .fbar .flogo{background:linear-gradient(135deg,#ffd93d,#8a6a1f)}
+  #bwShop .fbar .fver{color:#ffd93d}
+  .bwres{display:flex;gap:14px;padding:8px 12px;background:#07050e;font-size:12px;
+    color:#8a8aaa;border-bottom:1px solid #ffffff0d}
+  .bwres b{color:#ffd93d;font-weight:800}
+  .bwlist{max-height:min(52vh,420px);overflow-y:auto}
+  .bwitem{padding:8px 12px;border-left:2px solid #ffd93d55;cursor:pointer;transition:.1s;
+    display:grid;grid-template-columns:1fr auto;gap:2px 10px}
+  .bwitem:hover{background:#ffd93d12}
+  .bwitem.no{border-left-color:#ffffff14;opacity:.45;cursor:not-allowed}
+  .bwn{font-size:12.5px;font-weight:800;color:#fff}
+  .bwd{font-size:10.5px;color:#7a7f92;grid-column:1}
+  .bwc{grid-row:span 2;align-self:center;font-size:11px;font-weight:800;color:#ffd93d;white-space:nowrap}
+  .bwitem.no .bwc{color:#6a6a85}
   /* ===== 인벤토리 설정 ===== */
   .invrow{display:flex;align-items:center;gap:12px;text-align:left;padding:9px 12px;margin-bottom:5px;
     background:#ffffff08;border-left:2px solid #ffffff18;cursor:pointer;transition:.12s}
@@ -310,6 +326,7 @@
   <input id="chatIn" autocomplete="off" spellcheck="false" placeholder="/help 를 입력하면 명령어 목록">
   <div id="chatHint"><b>Enter</b> 실행 · <b>Tab</b> 자동완성 · <b>↑↓</b> 기록 · <b>ESC</b> 닫기</div>
 </div>
+<div id="bwShop" class="fpanel" style="display:none"></div>
 <div id="hackPanel" class="fpanel" style="display:none"></div>
 <div id="hackerPanel" class="fpanel" style="display:none"></div>
 <div id="load">
@@ -509,6 +526,9 @@ var T = {
   SAND_SIDE: 16, SAND_TOP: 17, QUARTZ: 18, LEAVES: 19, BEDROCK: 20, GLOW: 21, REDSTONE: 22,
   DPLANK: 23, WHITE: 24, SPARK: 25, SWEEP: 26, EMERALD: 27, LAPIS: 28, GRAVEL: 29, SMOOTH: 30,
   ARM_IRON: 31, ARM_DIA: 32, ARM_GOLD: 33, SOUL: 34, PRIS: 35, BRICKS: 36, ANDESITE: 37, MOSSBRICK: 38, SMOKE: 39,
+  /* --- 배드워즈 : 침대 --- */
+  BED_R_TOP: 63, BED_R_SIDE: 64, BED_B_TOP: 65, BED_B_SIDE: 66,
+  WOOL_R: 67, WOOL_B: 68,
   /* --- 2.0 : 네더 투기장 --- */
   BLACKSTONE: 40, PBLACK: 41, GILDED: 42, NBRICK: 43, MAGMA: 44, CRYING: 45, LAVA: 46,
   RUNE: 47, RUNE2: 48, GLOWORB: 49, RING: 50, BEAM: 51, ARM_NETHER: 52, SOULSAND: 53, CHISEL: 54,
@@ -557,6 +577,33 @@ function buildAtlas() {
   noiseTile(T.DIRT, 0x866043, 16, 8, 0x74513a);
   noiseTile(T.GRASS_TOP, 0x74b44a, 18, 10, 0x5fa03c);
   noiseTile(T.SMOOTH, 0x9a9a9a, 7);
+  /* --- 배드워즈 : 양털 / 침대 --- */
+  noiseTile(T.WOOL_R, 0xb02b2b, 10);
+  noiseTile(T.WOOL_B, 0x2b4fb0, 10);
+  (function bedTiles() {
+    /* 위 : 이불 + 베개 / 옆 : 나무 프레임 + 이불 */
+    function top(tile, cloth, clothDk, pillow) {
+      var t = mk(tile), C = hx(cloth), Cd = hx(clothDk), P = hx(pillow), W = hx(0x6b4523);
+      for (var y = 0; y < 16; y++) for (var x = 0; x < 16; x++) {
+        var edge = (x === 0 || x === 15 || y === 0 || y === 15);
+        if (edge) { t.set(x, y, nz(W, t.rng, 8)); continue; }
+        if (y < 5) { t.set(x, y, nz(P, t.rng, 10)); continue; }          // 베개
+        var stripe = (y % 4 === 1);
+        t.set(x, y, nz(stripe ? Cd : C, t.rng, 10));
+      }
+    }
+    function side(tile, cloth, clothDk) {
+      var t = mk(tile), C = hx(cloth), Cd = hx(clothDk), W = hx(0x6b4523), Wd = hx(0x4a2f18);
+      for (var y = 0; y < 16; y++) for (var x = 0; x < 16; x++) {
+        if (y >= 10) { t.set(x, y, nz(y >= 14 ? Wd : W, t.rng, 8)); continue; }  // 프레임
+        t.set(x, y, nz((x % 5 === 0) ? Cd : C, t.rng, 9));
+      }
+    }
+    top(T.BED_R_TOP, 0xc23b3b, 0x8f2626, 0xf0f0f0);
+    side(T.BED_R_SIDE, 0xc23b3b, 0x8f2626);
+    top(T.BED_B_TOP, 0x3b5fc2, 0x26398f, 0xf0f0f0);
+    side(T.BED_B_SIDE, 0x3b5fc2, 0x26398f);
+  })();
   noiseTile(T.ANDESITE, 0x8a8a86, 12, 6, 0x9d9d99);
   noiseTile(T.QUARTZ, 0xece9e2, 8, 4, 0xdcd8ce);
   noiseTile(T.OBSIDIAN, 0x14101e, 6, 9, 0x2a2140);
@@ -1424,7 +1471,8 @@ var B = {
   SMOOTH: 25, BRICKS: 26, ANDESITE: 27, PRIS: 28, REDSTONE: 29,
   BLACKSTONE: 30, PBLACK: 31, GILDED: 32, NBRICK: 33, MAGMA: 34, CRYING: 35, LAVA: 36,
   RUNE: 37, RUNE2: 38, CHISEL: 39, SOULSAND: 40,
-  SNOW: 41, ICE: 42, PICE: 43, BICE: 44, WATER: 45, SNOWSTONE: 46, SANDBRICK: 47
+  SNOW: 41, ICE: 42, PICE: 43, BICE: 44, WATER: 45, SNOWSTONE: 46, SANDBRICK: 47,
+  BED_R: 48, BED_B: 49, WOOL_R: 50, WOOL_B: 51
 };
 /* [top, side, bottom, solid, cutout, emissive] */
 var BLOCKS = [];
@@ -1449,6 +1497,11 @@ var BLOCKS = [];
   def(B.LOG, T.LOG_TOP, T.LOG_SIDE);
   def(B.LEAVES, T.LEAVES, T.LEAVES, T.LEAVES, { cut: true });
   def(B.GLASS, T.GLASS, T.GLASS, T.GLASS, { cut: true, breakable: true });
+  /* 배드워즈 */
+  def(B.BED_R, T.BED_R_TOP, T.BED_R_SIDE, T.PLANK, { breakable: true });
+  def(B.BED_B, T.BED_B_TOP, T.BED_B_SIDE, T.PLANK, { breakable: true });
+  def(B.WOOL_R, T.WOOL_R, T.WOOL_R, T.WOOL_R, { breakable: true });
+  def(B.WOOL_B, T.WOOL_B, T.WOOL_B, T.WOOL_B, { breakable: true });
   def(B.OBSIDIAN, T.OBSIDIAN, T.OBSIDIAN);
   def(B.IRON, T.IRON, T.IRON);
   def(B.GOLD, T.GOLD, T.GOLD);
@@ -1572,7 +1625,78 @@ function octDist(dx, dz) {
   return Math.max(ax, az, (ax + az) * 0.7071);
 }
 
+/* =====================================================================
+   배드워즈 맵 : 섬 두 개 + 가운데 섬, 사이는 허공
+   ===================================================================== */
+var BW_ISLE = [];          // [{cx,cz,bedX,bedZ,bedDir}] 팀별 섬 정보
+function generateBedwars(seed) {
+  var rg = new Rng(seed || 424242);
+  VOID_Y = SURF - 26; LAVA_Y = -999;
+  world.fill(0); SPAWNS.length = 0; BW_ISLE.length = 0;
+
+  function disc(cx, cz, r, depth, top, sub) {
+    for (var z = 0; z < WZ; z++) for (var x = 0; x < WX; x++) {
+      var dx = x - cx, dz = z - cz, d = Math.sqrt(dx * dx + dz * dz);
+      if (d > r + (rg.next() - 0.5) * 0.7) continue;
+      for (var k = 0; k < depth; k++) {
+        var y = SURF - k;
+        var shrink = r - k * 1.35;
+        if (d > shrink) continue;
+        setBlock(x, y, z, k === 0 ? top : sub);
+      }
+    }
+  }
+  var GAP = 19;                                   // 섬 중심 간 거리(각 방향)
+  var teams = [
+    { cx: CX - GAP, cz: CZ, col: B.WOOL_R, bed: B.BED_R, yaw: 90 },
+    { cx: CX + GAP, cz: CZ, col: B.WOOL_B, bed: B.BED_B, yaw: 270 }
+  ];
+  /* 가운데 섬 (에메랄드) */
+  disc(CX, CZ, 7.2, 4, B.QUARTZ, B.SMOOTH);
+  for (var a = 0; a < 4; a++) {
+    var ax = CX + [4, -4, 0, 0][a], az = CZ + [0, 0, 4, -4][a];
+    setBlock(ax, SURF + 1, az, B.SBRICK); setBlock(ax, SURF + 2, az, B.GLOW);
+  }
+  setBlock(CX, SURF + 1, CZ, B.EMERALD);
+
+  for (var t = 0; t < 2; t++) {
+    var T2 = teams[t];
+    disc(T2.cx, T2.cz, 8.4, 5, B.SMOOTH, B.STONE);
+    /* 팀 색 바닥 무늬 */
+    for (var z2 = -3; z2 <= 3; z2++) for (var x2 = -3; x2 <= 3; x2++)
+      if (Math.abs(x2) + Math.abs(z2) <= 3) setBlock(T2.cx + x2, SURF, T2.cz + z2, T2.col);
+    /* 침대 : 2칸 (머리 + 발) — 섬 바깥쪽을 향해 놓는다 */
+    var dir = (t === 0) ? -1 : 1;
+    var bx = T2.cx + dir * 3, bz = T2.cz;
+    setBlock(bx, SURF + 1, bz, T2.bed);
+    setBlock(bx + dir, SURF + 1, bz, T2.bed);
+    /* 침대 보호용 낮은 벽 */
+    for (var w = -2; w <= 2; w++) {
+      setBlock(bx + dir * 2, SURF + 1, bz + w, T2.col);
+      if (Math.abs(w) === 2) { setBlock(bx, SURF + 1, bz + w, T2.col); setBlock(bx + dir, SURF + 1, bz + w, T2.col); }
+    }
+    /* 자원 생성기 표시 */
+    setBlock(T2.cx - dir * 3, SURF + 1, T2.cz, B.IRON);
+    setBlock(T2.cx - dir * 3, SURF + 2, T2.cz, B.GOLD);
+    /* 상점 좌대 */
+    setBlock(T2.cx, SURF + 1, T2.cz + 4, B.EMERALD);
+    setBlock(T2.cx, SURF + 1, T2.cz - 4, B.DIAMOND);
+
+    BW_ISLE.push({ cx: T2.cx, cz: T2.cz, bedX: bx, bedZ: bz, bedX2: bx + dir,
+                   bedBlock: T2.bed, wool: T2.col,
+                   genX: T2.cx - dir * 3, genZ: T2.cz });
+    SPAWNS.push({ x: T2.cx + 0.5, y: SURF + 1, z: T2.cz + 0.5, yaw: T2.yaw });
+  }
+  /* 높이맵 */
+  for (var hz = 0; hz < WZ; hz++) for (var hx2 = 0; hx2 < WX; hx2++) {
+    var hi = 0;
+    for (var hy = WY - 1; hy >= 0; hy--) if (getBlock(hx2, hy, hz)) { hi = hy + 1; break; }
+    heightMap[hz * WX + hx2] = hi;
+  }
+}
+
 function generateArena(seed, map) {
+  if (Game.mode === 'bedwars') { curMap = map || curMap; generateBedwars(seed); return; }
   curMap = map || curMap;
   var M = curMap.mat, rg = new Rng(seed || 20250816);
   VOID_Y = curMap.deathY; LAVA_Y = curMap.sea.y;
@@ -2543,8 +2667,10 @@ Entity.prototype.canBlockDamage = function (attacker) {
 Entity.prototype.applyArmor = function (dmg) {
   if (!Inv.armor) return dmg;                 // 방어구를 인벤토리에서 뺀 경우
   var k = this.kit;
+  var bonus = (Game.mode === 'bedwars') ? (BW.upg[this === Game.player ? 0 : 1].armor || 0) : 0;
+  var armor = clamp(k.armor + bonus, 0, 20);
   var f = 2 + k.tough / 4;
-  var f1 = clamp(k.armor - dmg / f, k.armor * 0.2, 20);
+  var f1 = clamp(armor - dmg / f, armor * 0.2, 20);
   dmg = dmg * (1 - f1 / 25);
   if (k.prot > 0) dmg = dmg * (1 - clamp(k.prot, 0, 20) / 25);
   return dmg;
@@ -2708,7 +2834,9 @@ Entity.prototype.performAttack = function (target, cooled) {
   var dmg = (mace ? MACE_BASE : k.dmg) + ((k.str || 0) + (this.rageTicks > 0 ? 2 : 0)) * 3;
   var _Md = modsFor(this);
   if (_Md && _Md.damage && _Md.dmgMult !== 1) dmg *= _Md.dmgMult;
-  var ench = k.sharp > 0 ? (0.5 * k.sharp + 0.5) : 0;
+  var upSharp = (Game.mode === 'bedwars') ? (BW.upg[this === Game.player ? 0 : 1].sharp || 0) : 0;
+  var totalSharp = (k.sharp || 0) + upSharp;
+  var ench = totalSharp > 0 ? (0.5 * totalSharp + 0.5) : 0;
   var full = COMBAT.mode === 18 || cooled > 0.9;
 
   if (COMBAT.mode === 19) { dmg = dmg * (0.2 + cooled * cooled * 0.8); ench = ench * cooled; }
@@ -3252,6 +3380,7 @@ BotAI.prototype.tick = function (target) {
   var e = this.e, d = this.d;
   e.moveForward = 0; e.moveStrafe = 0; e.jumping = false;
   if (e.dead || !target) { e.sprinting = false; return; }
+  if (Game.mode === 'bedwars' && this.bedwars(target)) return;
 
   /* --- 반응 지연용 위치 히스토리 --- */
   this.hist.push({ x: target.x, y: target.y, z: target.z, ey: target.eyeY() });
@@ -3457,6 +3586,86 @@ BotAI.prototype.tick = function (target) {
     e.attemptAttack(target);
     this.clickTimer = Math.max(1, Math.round(20 / d.cps) + rndInt(-1, 1));
   }
+};
+
+/* =====================================================================
+   배드워즈 AI : 자원 모으기 → 다리 놓기 → 침대 부수기 → 교전
+   true 를 돌려주면 이 틱은 배드워즈 로직이 전담한다
+   ===================================================================== */
+BotAI.prototype.bedwars = function (target) {
+  var e = this.e, d = this.d;
+  var myIsle = BW_ISLE[1], foeIsle = BW_ISLE[0];
+  if (!myIsle || !foeIsle) return false;
+
+  var distToFoe = Math.sqrt((target.x - e.x) * (target.x - e.x) + (target.z - e.z) * (target.z - e.z));
+  /* 상대가 가까우면 평소 전투 AI 에게 넘긴다 */
+  if (distToFoe < 6.5 && !target.dead) return false;
+
+  /* 상점 : 자원이 모이면 자동 구매 (블록 우선) */
+  if (this.shopT === undefined) this.shopT = 0;
+  if (--this.shopT <= 0) {
+    this.shopT = 40;
+    var res = BW.res[1];
+    if (res.iron >= 4 && e.blocks < 24) { res.iron -= 4; e.blocks += 16; }
+    else if (res.gold >= 3 && e.gapples < 3) { res.gold -= 3; e.gapples += 2; }
+    else if (res.gold >= 6 && !(BW.upg[1].armor >= 8)) { res.gold -= 6; BW.upg[1].armor = (BW.upg[1].armor || 0) + 4; }
+    else if (res.emerald >= 3) { res.emerald -= 3; BW.upg[1].sharp = (BW.upg[1].sharp || 0) + 1; }
+  }
+
+  /* 목표 : 상대 침대(살아 있으면) 아니면 상대 본인 */
+  var goalX, goalZ, attackBed = false;
+  if (BW.beds[0]) { goalX = foeIsle.bedX + 0.5; goalZ = foeIsle.bedZ + 0.5; attackBed = true; }
+  else { goalX = target.x; goalZ = target.z; }
+
+  var dx = goalX - e.x, dz = goalZ - e.z;
+  var dist = Math.sqrt(dx * dx + dz * dz) || 0.001;
+  var tox = dx / dist, toz = dz / dist;
+
+  /* 조준 */
+  var aimY = attackBed ? (SURF + 1.5) : (target.eyeY() - 0.2);
+  var wantYaw = Math.atan2(-dx, dz) / DEG;
+  var dy = aimY - e.eyeY();
+  e.yaw = approachDeg(e.yaw, wantYaw, d.turn);
+  e.pitch = clamp(approachDeg(e.pitch, -Math.atan2(dy, Math.max(0.6, dist)) / DEG, d.turn), -90, 90);
+
+  /* 침대에 닿았으면 부순다 */
+  if (attackBed && dist < 4.2) {
+    e.moveForward = dist > 2.2 ? 1 : 0;
+    e.sprinting = false;
+    if (e.ticksSinceSwing >= 6) {
+      var hit = rayBlock(e, 4.6);
+      if (hit && getBlock(hit.x, hit.y, hit.z) === foeIsle.bedBlock) {
+        editBlock(hit.x, hit.y, hit.z, 0);
+        e.swingArm(); Snd.breakBlock();
+        burstBlock(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5, T.BED_R_SIDE, 8);
+      } else if (hit && BLOCKS[getBlock(hit.x, hit.y, hit.z)].breakable) {
+        editBlock(hit.x, hit.y, hit.z, 0);      // 앞을 막은 방어벽 제거
+        e.swingArm(); Snd.breakBlock();
+      } else e.swingArm();
+    }
+    return true;
+  }
+
+  /* 이동 : 앞이 허공이면 블록을 놓아 다리를 만든다 */
+  e.moveForward = 1;
+  e.sprinting = e.food > 6;
+  var aheadX = e.x + tox * 1.1, aheadZ = e.z + toz * 1.1;
+  var footY = Math.floor(e.y - 0.2);
+  if (e.onGround && !isSolidAt(Math.floor(aheadX), footY, Math.floor(aheadZ))) {
+    /* 발 밑 앞칸이 비었다 → 다리 놓기 */
+    if (e.blocks > 0) {
+      if (editBlock(Math.floor(aheadX), footY, Math.floor(aheadZ), myIsle.wool)) {
+        e.blocks--; e.swingArm(); Snd.place();
+      }
+    } else {
+      /* 블록이 없으면 가장자리에서 멈춘다 (자살 방지) */
+      e.moveForward = 0; e.sprinting = false;
+    }
+  }
+  /* 한 칸 높은 턱은 점프로 넘는다 */
+  if (e.onGround && isSolidAt(Math.floor(aheadX), Math.floor(e.y + 0.6), Math.floor(aheadZ)))
+    e.jumping = true;
+  return true;
 };
 
 BotAI.prototype.safe = function (x, y, z) {
@@ -4388,6 +4597,8 @@ HUD.draw = function (alpha) {
     txt(c, (Net.connected ? '● 온라인' : '○ 끊김') + '  ' + pg + 'ms  ' + (Net.isHost ? '방장' : '참가자'),
       8 * S, 10 * S, 5.2 * S, Net.connected ? pc : '#ff5c5c', 'left');
   }
+  /* ---- 배드워즈 HUD ---- */
+  if (Game.mode === 'bedwars') this.drawBedwars();
   /* ---- 핵 클라이언트 오버레이 ---- */
   this.drawClientOverlay();
 
@@ -4746,6 +4957,37 @@ function railColor(i, t) {
   var f = function (n) { var k = (n + h * 6) % 6; return Math.round(255 * clamp(Math.min(k, 4 - k, 1), 0, 1) * 0.75 + 64); };
   return 'rgb(' + f(5) + ',' + f(3) + ',' + f(1) + ')';
 }
+
+HUD.drawBedwars = function () {
+  var c = this.ctx, W = this.W, H = this.H, S = this.S;
+  var r = BW.res[0];
+  /* 자원 (좌측 중앙) */
+  var rx = 8 * S, ry = H * 0.5 - 18 * S;
+  var rows = [['⛁ 철', r.iron, '#d8d8e2'], ['⛃ 금', r.gold, '#ffd93d'], ['❖ 에메', r.emerald, '#6cff9c']];
+  c.fillStyle = 'rgba(8,6,16,0.66)'; c.fillRect(rx - 3 * S, ry - 8 * S, 52 * S, 34 * S);
+  for (var i = 0; i < rows.length; i++) {
+    txt(c, rows[i][0], rx, ry + i * 11 * S, 6.4 * S, '#8a8aaa', 'left');
+    txt(c, '' + rows[i][1], rx + 46 * S, ry + i * 11 * S, 7 * S, rows[i][2], 'right');
+  }
+  txt(c, '[B] 상점', rx, ry + 34 * S, 5.2 * S, '#ffd93d', 'left');
+
+  /* 침대 상태 (상단 중앙) */
+  var by = 30 * S;
+  var labels = [['내 침대', BW.beds[0], '#6fd0ff'], ['상대 침대', BW.beds[1], '#ff7a7a']];
+  for (var t = 0; t < 2; t++) {
+    var lx = W / 2 + (t === 0 ? -56 * S : 56 * S);
+    var alive = labels[t][1];
+    txt(c, labels[t][0], lx, by, 5.6 * S, alive ? labels[t][2] : '#5a5a6a', 'center');
+    txt(c, alive ? '🛏 정상' : '✖ 파괴됨', lx, by + 10 * S, 6.6 * S,
+      alive ? '#7dff9b' : '#ff5c5c', 'center');
+  }
+  /* 부활 카운트 */
+  if (BW.respawn[0] > 0) {
+    txt(c, '부활까지 ' + Math.ceil(BW.respawn[0] / 20) + '초', W / 2, H * 0.42, 11 * S, '#bfe9ff', 'center');
+  }
+  if (!BW.beds[0] && !Game.player.dead)
+    txt(c, '⚠ 침대가 없습니다 — 죽으면 끝', W / 2, by + 22 * S, 5.6 * S, '#ff8f6a', 'center');
+};
 
 HUD.drawClientOverlay = function () {
   var c = this.ctx, W = this.W, H = this.H, S = this.S;
@@ -5381,6 +5623,7 @@ var Game = {
     shiftSprint: false,   // true 면 Shift=달리기 / Ctrl=웅크리기
     touchUI: null         // null = 기기 자동 판별
   },
+  mode: 'duel',                 // 'duel' | 'bedwars'
   menuCam: null, lastW: 0, paused: false,
   online: false, myName: '플레이어', netSeat: 0,
   /* --- 2.0 POWER --- */
@@ -5490,6 +5733,115 @@ Game.onBlockedHit = function (target, attacker) {
   if (this.settings.dmgNum) HUD.dmgTexts.push({ x: target.x, y: target.y + 1.2, z: target.z, s: '막힘', col: '#7fd6ff', t: 0, life: 0.8, crit: false });
 };
 
+/* =====================================================================
+   배드워즈 진행
+   ===================================================================== */
+var BW = {
+  beds: [true, true],
+  res: [{ iron: 0, gold: 0, emerald: 0 }, { iron: 0, gold: 0, emerald: 0 }],
+  gen: [0, 0], emGen: 0, respawn: [0, 0], upg: [{}, {}]
+};
+Game.bwReset = function () {
+  BW.beds = [true, true];
+  BW.res = [{ iron: 0, gold: 0, emerald: 0 }, { iron: 0, gold: 0, emerald: 0 }];
+  BW.gen = [0, 0]; BW.emGen = 0; BW.respawn = [0, 0];
+  BW.upg = [{}, {}];
+};
+Game.bwTeamOf = function (e) { return e === this.player ? 0 : 1; };
+
+/* 자원 생성기 */
+Game.bwTickGen = function () {
+  for (var t = 0; t < 2; t++) {
+    if (!BW.beds[t] && this.bwEliminated(t)) continue;
+    BW.gen[t]++;
+    var isle = BW_ISLE[t];
+    if (BW.gen[t] % 26 === 0) {                       // 철 1.3초
+      BW.res[t].iron += 1;
+      if (isle) this.bwGenFx(isle, [0.85, 0.85, 0.9]);
+    }
+    if (BW.gen[t] % 150 === 0) {                      // 금 7.5초
+      BW.res[t].gold += 1;
+      if (isle) this.bwGenFx(isle, [1, 0.82, 0.25]);
+    }
+  }
+  BW.emGen++;
+  if (BW.emGen % 400 === 0) {                         // 에메랄드 20초 (가운데)
+    BW.res[0].emerald += 1; BW.res[1].emerald += 1;
+    spawnRing(CX + 0.5, SURF + 2, CZ + 0.5, 0.4, 3.0, 12, [0.3, 1, 0.5]);
+    if (this.state === 'play') this.log('가운데 섬에서 에메랄드가 생성됐습니다', '#6cff9c');
+  }
+};
+Game.bwGenFx = function (isle, col) {
+  spawnParticle(isle.genX + 0.5, SURF + 2.6, isle.genZ + 0.5,
+    rnd(-.02, .02), rnd(0.02, 0.06), rnd(-.02, .02), 0.12, 16, col, T.GLOWORB, -0.002, true);
+};
+Game.bwEliminated = function (t) {
+  var e = (t === 0) ? this.player : this.bot;
+  return !BW.beds[t] && e.dead;
+};
+
+/* 침대가 깨졌는지 검사 — 매 틱 값싸게 확인 */
+Game.bwCheckBeds = function () {
+  for (var t = 0; t < 2; t++) {
+    if (!BW.beds[t]) continue;
+    var i = BW_ISLE[t];
+    if (!i) continue;
+    var alive = getBlock(i.bedX, SURF + 1, i.bedZ) === i.bedBlock ||
+                getBlock(i.bedX2, SURF + 1, i.bedZ) === i.bedBlock;
+    if (!alive) this.bwBedBroken(t);
+  }
+};
+Game.bwBedBroken = function (t) {
+  if (!BW.beds[t]) return;
+  BW.beds[t] = false;
+  var i = BW_ISLE[t];
+  /* 남은 침대 조각도 제거 */
+  editBlock(i.bedX, SURF + 1, i.bedZ, 0);
+  editBlock(i.bedX2, SURF + 1, i.bedZ, 0);
+  var mine = (t === 0);
+  Snd.maceSmash(2);
+  HUD.doFlash(mine ? [255, 60, 60] : [120, 255, 160], 0.45);
+  this.addShake(1.0);
+  spawnRing(i.bedX + 0.5, SURF + 1.5, i.bedZ + 0.5, 0.5, 6, 16, mine ? [1, 0.3, 0.3] : [0.4, 1, 0.6]);
+  for (var k = 0; k < 40; k++) {
+    var a = Math.random() * TAU, sp = rnd(0.1, 0.35);
+    spawnParticle(i.bedX + 0.5, SURF + 1.5, i.bedZ + 0.5, Math.cos(a) * sp, rnd(0.06, 0.3), Math.sin(a) * sp,
+      rnd(0.1, 0.22), rndInt(12, 26), mine ? [1, 0.3, 0.3] : [0.4, 1, 0.6], T.GLOWORB, 0.01, true);
+  }
+  this.center(mine ? '침대 파괴됨!' : '상대 침대 파괴!',
+    mine ? '이제 죽으면 부활할 수 없습니다' : '이제 상대를 죽이면 승리합니다',
+    22, mine ? '#ff5c5c' : '#7dff9b', 70);
+  this.log((mine ? '내' : '상대') + ' 침대가 파괴되었습니다', mine ? '#ff5c5c' : '#7dff9b');
+  if (this.online && Net.connected && !mine) Net.send({ t: 'bed' });
+};
+
+/* 배드워즈 사망 처리 : 침대가 있으면 부활, 없으면 패배 */
+Game.bwHandleDeath = function (e) {
+  var t = this.bwTeamOf(e);
+  if (BW.beds[t]) {
+    BW.respawn[t] = 100;                              // 5초
+    this.log(e.name + ' 님이 5초 뒤 부활합니다', '#bfe9ff');
+    return true;                                      // 라운드는 계속
+  }
+  this.log(e.name + ' 님이 탈락했습니다 (침대 없음)', '#ff5c5c');
+  return false;                                       // 최종 사망 → 승패
+};
+Game.bwTickRespawn = function () {
+  for (var t = 0; t < 2; t++) {
+    if (BW.respawn[t] <= 0) continue;
+    BW.respawn[t]--;
+    if (BW.respawn[t] > 0) continue;
+    var e = (t === 0) ? this.player : this.bot;
+    var sp = SPAWNS[t] || SPAWNS[0];
+    e.reset(sp);
+    /* 배드워즈는 라운드마다 인벤토리를 유지하지 않고 기본 지급 */
+    e.blocks = Math.max(e.blocks, 16);
+    spawnRing(e.x, e.y + 0.1, e.z, 0.3, 2.4, 10, [0.5, 0.9, 1]);
+    Snd.bell(1.1);
+    this.log(e.name + ' 님이 부활했습니다', '#bfe9ff');
+  }
+};
+
 Game.onDeath = function (e, killer, cause) {
   var name = e.name;
   if (cause === 'lava') this.log(name + ' 님이 용암 바다에 빠졌습니다', '#ff7a2b');
@@ -5508,6 +5860,12 @@ Game.onDeath = function (e, killer, cause) {
   }
   if (this.state === 'play') {
     if (this.online && e === this.player) Net.send({ t: 'd' });
+    /* --- 배드워즈 : 침대가 살아 있으면 부활하고 계속 --- */
+    if (this.mode === 'bedwars' && this.bwHandleDeath(e)) {
+      this.addShake(0.5);
+      if (this.settings.sound) Snd.death();
+      return;
+    }
     /* --- K.O. 시네마틱 --- */
     var iWon = (e !== this.player);
     this.koCam.active = true; this.koCam.target = e; this.koCam.t = 0;
@@ -5640,9 +5998,10 @@ Game.netRound = function (m) {
   if (m.ahk !== undefined) RoomCfg.allowHacker = !!m.ahk;
   if (m.aa !== undefined) RoomCfg.allowAnchor = !!m.aa;
   if (m.wn !== undefined) { RoomCfg.winsNeeded = m.wn; this.settings.bo = m.wn; }
-  if (this.builtMap !== this.map) {
+  var wantM = this.mode === 'bedwars' ? 'bedwars' : this.map;
+  if (this.builtMap !== wantM) {
     generateArena(20250816 + MAPS.indexOf(this.map) * 977, this.map);
-    Render.worldMesh = buildWorldMesh(); Render.rebuildMap(); this.builtMap = this.map;
+    Render.worldMesh = buildWorldMesh(); Render.rebuildMap(); this.builtMap = wantM;
   }
   if (m.a === 'start') {
     this.round = m.rd; this.score = [m.s1, m.s0];    // 점수는 시점 반전
@@ -5654,12 +6013,14 @@ Game.netRound = function (m) {
 
 /* ---------------- 라운드 진행 ---------------- */
 Game.startMatch = function () {
-  if (this.builtMap !== this.map) {
+  var want = this.mode === 'bedwars' ? 'bedwars' : this.map;
+  if (this.builtMap !== want) {
     generateArena(20250816 + MAPS.indexOf(this.map) * 977, this.map);
     Render.worldMesh = buildWorldMesh();
     Render.rebuildMap();
-    this.builtMap = this.map;
+    this.builtMap = want;
   }
+  if (this.mode === 'bedwars') this.bwReset();
   this.score = [0, 0]; this.round = 1;
   var blank = function () { return { hits: 0, swings: 0, crits: 0, dmgDealt: 0, dmgTaken: 0, combo: 0, maxCombo: 0,
     blocked: 0, gapples: 0, beams: 0, rages: 0, beamHits: 0, pearls: 0 }; };
@@ -5684,6 +6045,12 @@ Game.startRound = function () {
   this.ai.hist.length = 0; this.ai.critPending = false; this.ai.blockTimer = 0; this.ai.healMode = false;
   this.ai.ultArmed = false; this.ai.ultTimer = 0; this.ai.beamCool = 0;
   this.bot.netQueue = [];
+  if (this.mode === 'bedwars') {
+    this.bwReset();
+    this.player.blocks = Math.max(this.player.blocks, 16);
+    this.bot.blocks = Math.max(this.bot.blocks, 16);
+    Inv.blocks = true;
+  }
   this.roundTime = 2000; this.countdown = 72;
   this.state = 'countdown';
   hideUI();
@@ -5865,6 +6232,9 @@ Game.tick = function () {
     if (this.koCam.t > this.koCam.dur) { this.koCam.active = false; this.timeScale = 1; }
   }
   tickBeams(); tickPearls(); tickWinds();
+  if (this.mode === 'bedwars' && (this.state === 'play' || this.state === 'countdown')) {
+    this.bwTickGen(); this.bwCheckBeds(); this.bwTickRespawn();
+  }
   if (this.centerTime > 0) this.centerTime--;
   if (this.itemNameTime > 0) this.itemNameTime--;
   if (this.equipAnim > 0) this.equipAnim = Math.max(0, this.equipAnim - 0.22);
@@ -6042,6 +6412,12 @@ function menuHTML() {
   }
   return '<h1>MINECRAFT PvP<span class="v2">2.0 POWER</span></h1>' +
     '<div class="sub">용암 투기장 1 vs 1 · 바닐라 전투 판정 + 궁극기</div>' +
+    '<div class="lab">게임 모드</div><div class="grid2">' +
+      '<div class="opt" data-g="mode" data-v="duel"><div class="t">1 vs 1 결투</div>' +
+        '<div class="d">용암 투기장 · 선승제<br>바닐라 전투 + 궁극기</div></div>' +
+      '<div class="opt" data-g="mode" data-v="bedwars"><div class="t">배드워즈</div>' +
+        '<div class="d">침대를 지키고 상대 침대를 부숴라<br>자원 생성 · 상점 · 다리 놓기</div></div>' +
+    '</div>' +
     '<div class="lab">맵</div><div class="grid4">' + mp + '</div>' +
     '<div class="lab">난이도</div><div class="grid4">' + d + '</div>' +
     '<div class="lab">킷</div><div class="grid4">' + k + '</div>' +
@@ -6065,6 +6441,7 @@ function showMenu() {
   closePanels();
   Game.state = 'menu';
   showUI(menuHTML(), false);
+  bindOpts('mode', Game.mode, function (v) { Game.mode = v; Game.builtMap = null; });
   bindOpts('map', Game.map.id, function (v) {
     for (var i = 0; i < MAPS.length; i++) if (MAPS[i].id === v) Game.map = MAPS[i];
   });
@@ -6409,6 +6786,81 @@ function bindChat() {
     }
   });
   inp.addEventListener('keyup', function (e) { e.stopPropagation(); });
+}
+
+/* =====================================================================
+   배드워즈 상점  (B 키)
+   ===================================================================== */
+var BW_SHOP = [
+  { k: 'blocks', n: '양털 블록 ×16', c: { iron: 4 }, d: '다리 놓기 · 침대 방어',
+    f: function (p) { p.blocks = Math.min(128, p.blocks + 16); Inv.blocks = true; } },
+  { k: 'blocks2', n: '나무 블록 ×32', c: { iron: 12 }, d: '더 단단한 방어벽',
+    f: function (p) { p.blocks = Math.min(128, p.blocks + 32); Inv.blocks = true; } },
+  { k: 'gapple', n: '황금 사과 ×2', c: { gold: 3 }, d: '재생 II + 흡수 하트',
+    f: function (p) { p.gapples += 2; Inv.gapple = true; } },
+  { k: 'pearl', n: '엔더 진주 ×1', c: { emerald: 2 }, d: '순간이동 — 침대 급습',
+    f: function (p) { p.pearls += 1; Inv.pearl = true; } },
+  { k: 'wind', n: '바람 충전기 ×3', c: { gold: 4 }, d: '상대를 허공으로 날린다',
+    f: function (p) { p.winds += 3; Inv.wind = true; } },
+  { k: 'mace', n: '철퇴', c: { gold: 8, iron: 20 }, d: '높은 곳에서 내리치면 즉사급',
+    f: function (p) { p.hasMace = true; Inv.mace = true; } },
+  { k: 'elytra', n: '겉날개 + 폭죽 ×6', c: { emerald: 4 }, d: '섬 사이를 날아서 이동',
+    f: function (p) { p.hasElytra = true; p.fireworks += 6; Inv.elytra = true; Inv.firework = true; } },
+  { k: 'sharp', n: '검 강화 (날카로움 +1)', c: { emerald: 3 }, d: '공격력 영구 상승',
+    f: function (p, t) { BW.upg[t].sharp = (BW.upg[t].sharp || 0) + 1; } },
+  { k: 'armor', n: '방어구 강화 (+4)', c: { gold: 6 }, d: '받는 피해 감소',
+    f: function (p, t) { BW.upg[t].armor = (BW.upg[t].armor || 0) + 4; } },
+  { k: 'heal', n: '즉시 회복', c: { iron: 8 }, d: '체력을 가득 채운다',
+    f: function (p) { p.health = p.maxHealth; } }
+];
+var _bwShopOpen = false;
+function bwCost(c) {
+  return Object.keys(c).map(function (k) {
+    return c[k] + ({ iron: '철', gold: '금', emerald: '에메' }[k]);
+  }).join(' + ');
+}
+function bwCanAfford(t, c) {
+  for (var k in c) if ((BW.res[t][k] || 0) < c[k]) return false;
+  return true;
+}
+function toggleShop() {
+  if (Game.mode !== 'bedwars' || Game.state !== 'play') return;
+  _bwShopOpen = !_bwShopOpen;
+  var el = document.getElementById('hackPanel');   // 상점은 별도 패널 사용
+  if (_bwShopOpen) { document.exitPointerLock && document.exitPointerLock(); buildShop(); }
+  else { document.getElementById('bwShop').style.display = 'none'; requestLock(); }
+}
+function buildShop() {
+  var el = document.getElementById('bwShop');
+  if (!el) return;
+  el.style.display = 'block';
+  var t = 0, p = Game.player, r = BW.res[0];
+  var rows = BW_SHOP.map(function (it, i) {
+    var ok = bwCanAfford(t, it.c);
+    return '<div class="bwitem' + (ok ? '' : ' no') + '" data-buy="' + i + '">' +
+      '<div class="bwn">' + it.n + '</div><div class="bwd">' + it.d + '</div>' +
+      '<div class="bwc">' + bwCost(it.c) + '</div></div>';
+  }).join('');
+  el.innerHTML =
+    '<div class="fbar" id="bwBar"><div class="flogo">🛒</div><div class="fname">상점</div>' +
+      '<div class="fver">BEDWARS</div><div class="fx" id="bwClose">✕</div></div>' +
+    '<div class="bwres"><span>⛁ 철 <b>' + r.iron + '</b></span><span>⛃ 금 <b>' + r.gold + '</b></span>' +
+      '<span>❖ 에메랄드 <b>' + r.emerald + '</b></span></div>' +
+    '<div class="bwlist">' + rows + '</div>' +
+    '<div class="ffoot"><b>B</b> 닫기 · 자원은 섬의 생성기에서 자동으로 쌓입니다</div>';
+  makeDraggable(el, el.querySelector('#bwBar'));
+  el.querySelector('#bwClose').onclick = function () { toggleShop(); };
+  el.querySelectorAll('[data-buy]').forEach(function (d) {
+    d.onclick = function () {
+      var it = BW_SHOP[parseInt(this.getAttribute('data-buy'), 10)];
+      if (!bwCanAfford(0, it.c)) { Snd.low(); Game.log('자원이 부족합니다 — ' + bwCost(it.c), '#ff7a7a'); return; }
+      for (var k in it.c) BW.res[0][k] -= it.c[k];
+      it.f(Game.player, 0);
+      Snd.equip();
+      Game.log('구매: ' + it.n, '#7dff9b');
+      buildShop();
+    };
+  });
 }
 
 /* ---------------- 인벤토리 설정 화면 ---------------- */
@@ -7082,6 +7534,7 @@ function bindInput() {
     if (e.code === 'KeyR') { var pp = Game.player; if (Game.state === 'play' && !pp.dead && pp.gapples > 0) { pp.slot = 1; pp.startUse(); Game.itemNameTime = 30; } }
     if (e.code === 'KeyQ') Game.tryBeam();
     if (e.code === 'KeyF') Game.tryRage();
+    if (e.code === 'KeyB' && Game.mode === 'bedwars') toggleShop();
     if (e.code === 'KeyZ' && RoomCfg.allowHack) toggleHackPanel();
     if (e.code === 'KeyX' && RoomCfg.allowHacker) toggleHackerPanel();
     var n = e.code.match(/^Digit([1-9])$/);
