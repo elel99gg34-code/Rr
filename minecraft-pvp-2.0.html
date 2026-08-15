@@ -217,8 +217,9 @@
     font-family:inherit;-webkit-tap-highlight-color:transparent}
   .ttop:active{background:#ff2d5544}
   #tPause{right:8px}
-  #tHackBtn{right:64px;color:#ff8fa5}
-  #tHackerBtn{right:128px;color:#7dffc0}
+  #tChat{right:64px;color:#c8c5d8}
+  #tHackBtn{right:128px;color:#ff8fa5}
+  #tHackerBtn{right:186px;color:#7dffc0}
   /* 핫바 */
   #tbar{position:absolute;left:50%;transform:translateX(-50%);bottom:6px;display:flex;gap:6px;
     pointer-events:auto}
@@ -243,6 +244,23 @@
     #hackerPanel{width:min(200px,60vw);right:8px}
     .flist{max-height:44vh}
   }
+  /* ===== 채팅 / 명령어 ===== */
+  #chat{position:fixed;left:0;right:0;bottom:0;z-index:22;display:none;
+    background:linear-gradient(transparent,#05040ae6 22%);padding:60px 10px 8px}
+  #chat.on{display:block}
+  #chatIn{width:100%;background:#05040ad9;border:1px solid #ffffff2a;color:#fff;
+    font-family:inherit;font-size:14px;padding:8px 11px;outline:none;caret-color:#7dff9b}
+  #chatIn:focus{border-color:#7dff9b88}
+  #chatSug{max-height:190px;overflow-y:auto;margin-bottom:5px;background:#05040ae0;
+    border:1px solid #ffffff18;display:none}
+  #chatSug.on{display:block}
+  .csug{padding:5px 10px;font-size:12px;color:#8a8aaa;cursor:pointer;display:flex;gap:9px;align-items:baseline}
+  .csug:hover,.csug.sel{background:#7dff9b18;color:#fff}
+  .csug b{color:#7dff9b;font-weight:800;min-width:96px}
+  .csug span{font-size:10.5px;color:#6a6a85;flex:1}
+  .csug.sel span{color:#9a9ab5}
+  #chatHint{font-size:10px;color:#4a4a63;padding:4px 2px 0}
+  #chatHint b{color:#7dff9b}
   /* ===== 인벤토리 설정 ===== */
   .invrow{display:flex;align-items:center;gap:12px;text-align:left;padding:9px 12px;margin-bottom:5px;
     background:#ffffff08;border-left:2px solid #ffffff18;cursor:pointer;transition:.12s}
@@ -281,10 +299,16 @@
   <button class="tbtn" id="tSneak">웅크<small>길게:달리기</small></button>
   <button class="tbtn" id="tQ">검기<small>Q</small></button>
   <button class="tbtn" id="tF">격노<small>F</small></button>
+  <button class="ttop" id="tChat">💬 채팅</button>
   <button class="ttop" id="tPause">■ 메뉴</button>
   <button class="ttop" id="tHackBtn">☠ 핵</button>
   <button class="ttop" id="tHackerBtn">👁 해커</button>
   <div id="tbar"></div>
+</div>
+<div id="chat">
+  <div id="chatSug"></div>
+  <input id="chatIn" autocomplete="off" spellcheck="false" placeholder="/help 를 입력하면 명령어 목록">
+  <div id="chatHint"><b>Enter</b> 실행 · <b>Tab</b> 자동완성 · <b>↑↓</b> 기록 · <b>ESC</b> 닫기</div>
 </div>
 <div id="hackPanel" class="fpanel" style="display:none"></div>
 <div id="hackerPanel" class="fpanel" style="display:none"></div>
@@ -454,6 +478,8 @@ var Snd = {
     this.noise(0.26, 1400, 0.7, 0.34, 'bandpass', 300);
     for (var i = 0; i < 3; i++) this.noise(0.10, 900 + Math.random() * 1400, 1.2, 0.16, 'bandpass', 200, 0.05 + i * 0.05);
   },
+  place: function () { this.noise(0.07, 460, 1.2, 0.24, 'bandpass'); this.tone(220, 0.05, 0.10, 'square', 300); },
+  breakBlock: function () { this.noise(0.14, 700, 0.8, 0.28, 'bandpass', 240); this.tone(160, 0.09, 0.10, 'square', 90); },
   equip: function () { this.noise(0.08, 620, 1.1, 0.20, 'bandpass'); this.tone(330, 0.07, 0.10, 'square', 440); }
 };
 
@@ -1125,6 +1151,29 @@ function buildItems() {
     't': hx(0x8a6522), 'y': hx(0xffd93d)
   });
 
+  /* 블록 아이콘 : 위/좌/우 3면 아이소메트릭 */
+  ItemSprites.plank_block = makeSprite(function (s) {
+    var TOP = hx(0xc8a165), L = hx(0x9a7844), R = hx(0x7d6036), E = hx(0x5b4526);
+    function grain(x, y, c, k) { return ((x * 3 + y * 5) % 7 === 0) ? [c[0]*k, c[1]*k, c[2]*k] : c; }
+    for (var y = 0; y < 16; y++) for (var x = 0; x < 16; x++) {
+      var cx = x - 7.5, cy = y - 8.0;
+      var u = cx * 0.5 + cy;          // 위쪽 마름모 판정
+      var topD = Math.abs(cx) * 0.5 + Math.abs(cy + 3.6);
+      if (topD <= 4.0 && y <= 8) { s(x, y, grain(x, y, TOP, 0.9)); continue; }
+      if (y > 3 && y < 15) {
+        var half = 4.0 - Math.max(0, (y - 11.5)) * 0.9;
+        var lim = 7.6;
+        if (x >= 1 && x <= 14) {
+          var lowEdge = 11.5 + (x < 8 ? (7.5 - x) * 0.5 : (x - 7.5) * 0.5);
+          var upEdge = 4.4 + (x < 8 ? (7.5 - x) * 0.5 : (x - 7.5) * 0.5);
+          if (y >= upEdge && y <= lowEdge) {
+            var edge = (x <= 1 || x >= 14 || y >= lowEdge - 0.6);
+            s(x, y, edge ? E : grain(x, y, x < 8 ? L : R, 0.88));
+          }
+        }
+      }
+    }
+  });
   ItemSprites.shield = makeSprite(function (s) {
     var W = hx(0x9a6b3f), Wd = hx(0x744f2c), I = hx(0xcfcfcf), Id = hx(0x8a8a8a);
     for (var y = 0; y < 16; y++) for (var x = 0; x < 16; x++) {
@@ -1248,6 +1297,9 @@ function GLMesh(data) {
   gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
   this.n = data.length / FSTRIDE;
 }
+GLMesh.prototype.dispose = function () {
+  if (this.buf) { gl.deleteBuffer(this.buf); this.buf = null; this.n = 0; }
+};
 GLMesh.prototype.bind = function () {
   gl.bindBuffer(gl.ARRAY_BUFFER, this.buf);
   gl.vertexAttribPointer(A.aPos, 3, gl.FLOAT, false, BSTRIDE, 0);
@@ -1380,7 +1432,7 @@ var BLOCKS = [];
   function def(id, top, side, bottom, o) {
     o = o || {};
     BLOCKS[id] = { top: top, side: side, bottom: bottom === undefined ? top : bottom,
-      solid: o.solid !== false, cut: !!o.cut, emit: o.emit || 0 };
+      solid: o.solid !== false, cut: !!o.cut, emit: o.emit || 0, breakable: !!o.breakable };
   }
   BLOCKS[0] = { solid: false, cut: true, emit: 0, top: 0, side: 0, bottom: 0 };
   def(B.BEDROCK, T.BEDROCK, T.BEDROCK);
@@ -1392,11 +1444,11 @@ var BLOCKS = [];
   def(B.SBRICK, T.SBRICK, T.SBRICK);
   def(B.SBRICK_C, T.SBRICK_C, T.SBRICK_C);
   def(B.MOSSBRICK, T.MOSSBRICK, T.MOSSBRICK);
-  def(B.PLANK, T.PLANK, T.PLANK);
-  def(B.DPLANK, T.DPLANK, T.DPLANK);
+  def(B.PLANK, T.PLANK, T.PLANK, undefined, { breakable: true });
+  def(B.DPLANK, T.DPLANK, T.DPLANK, undefined, { breakable: true });
   def(B.LOG, T.LOG_TOP, T.LOG_SIDE);
   def(B.LEAVES, T.LEAVES, T.LEAVES, T.LEAVES, { cut: true });
-  def(B.GLASS, T.GLASS, T.GLASS, T.GLASS, { cut: true });
+  def(B.GLASS, T.GLASS, T.GLASS, T.GLASS, { cut: true, breakable: true });
   def(B.OBSIDIAN, T.OBSIDIAN, T.OBSIDIAN);
   def(B.IRON, T.IRON, T.IRON);
   def(B.GOLD, T.GOLD, T.GOLD);
@@ -1727,10 +1779,103 @@ function buildChunkMesh(ox, oz, size) {
   }
   if (!found || !mb.count()) return null;
   return {
-    mesh: mb.build(),
+    mesh: mb.build(), ox: ox, oz: oz,
     bb: [ox, minY, oz, Math.min(WX, ox + size), maxY + 1, Math.min(WZ, oz + size)]
   };
 }
+
+/* =====================================================================
+   블록 설치 / 파괴 — 바뀐 청크만 다시 메싱한다
+   ===================================================================== */
+function rebuildChunkAt(x, z) {
+  if (!Render.worldMesh) return;
+  var ox = Math.floor(x / CHUNK) * CHUNK, oz = Math.floor(z / CHUNK) * CHUNK;
+  if (ox < 0 || oz < 0 || ox >= WX || oz >= WZ) return;
+  var fresh = buildChunkMesh(ox, oz, CHUNK);
+  for (var i = 0; i < Render.worldMesh.length; i++) {
+    var c = Render.worldMesh[i];
+    if (c.ox === ox && c.oz === oz) {
+      if (c.mesh && c.mesh.dispose) c.mesh.dispose();
+      if (fresh) Render.worldMesh[i] = fresh;
+      else Render.worldMesh.splice(i, 1);
+      return;
+    }
+  }
+  if (fresh) Render.worldMesh.push(fresh);
+}
+/* 블록을 바꾸고, 경계에 걸치면 이웃 청크까지 갱신 */
+function editBlock(x, y, z, id) {
+  if (x < 0 || y < 0 || z < 0 || x >= WX || y >= WY || z >= WZ) return false;
+  if (getBlock(x, y, z) === id) return false;
+  setBlock(x, y, z, id);
+  /* 높이맵 갱신 (그림자용) */
+  var hi = 0;
+  for (var yy = WY - 1; yy >= 0; yy--) { if (getBlock(x, yy, z)) { hi = yy + 1; break; } }
+  heightMap[z * WX + x] = hi;
+  rebuildChunkAt(x, z);
+  if (x % CHUNK === 0) rebuildChunkAt(x - 1, z);
+  if (x % CHUNK === CHUNK - 1) rebuildChunkAt(x + 1, z);
+  if (z % CHUNK === 0) rebuildChunkAt(x, z - 1);
+  if (z % CHUNK === CHUNK - 1) rebuildChunkAt(x, z + 1);
+  return true;
+}
+/* 시선이 닿는 블록 찾기 — 맞은 블록과 그 앞칸(설치 위치)을 돌려준다 */
+function rayBlock(e, maxD) {
+  var lv = e.lookVec();
+  var ox = e.x, oy = e.eyeY(), oz = e.z;
+  var px = -1, py = -1, pz = -1;
+  var step = 0.04, n = Math.ceil((maxD || 4.5) / step);
+  for (var i = 1; i <= n; i++) {
+    var t = i * step;
+    var bx = Math.floor(ox + lv[0] * t), by = Math.floor(oy + lv[1] * t), bz = Math.floor(oz + lv[2] * t);
+    if (bx === px && by === py && bz === pz) continue;
+    if (by < 0 || by >= WY) { px = bx; py = by; pz = bz; continue; }
+    if (isSolidAt(bx, by, bz))
+      return { x: bx, y: by, z: bz, px: px, py: py, pz: pz, dist: t };
+    px = bx; py = by; pz = bz;
+  }
+  return null;
+}
+/* 그 자리에 엔티티가 서 있으면 설치 불가 */
+function blockFreeOfEntities(x, y, z) {
+  for (var i = 0; i < Game.entities.length; i++) {
+    var e = Game.entities[i];
+    if (e.dead) continue;
+    var b = e.bb();
+    if (x + 1 > b.x0 && x < b.x1 && y + 1 > b.y0 && y < b.y1 && z + 1 > b.z0 && z < b.z1) return false;
+  }
+  return true;
+}
+Entity.prototype.placeBlock = function () {
+  if (this.dead || this.blocks <= 0) return false;
+  var hit = rayBlock(this, 4.6);
+  if (!hit || hit.px < 0) return false;
+  if (!blockFreeOfEntities(hit.px, hit.py, hit.pz)) return false;
+  if (getBlock(hit.px, hit.py, hit.pz) !== 0) return false;
+  if (!editBlock(hit.px, hit.py, hit.pz, this.blockId || B.PLANK)) return false;
+  this.blocks--;
+  this.swingArm();
+  Snd.place();
+  burstBlock(hit.px + 0.5, hit.py + 0.5, hit.pz + 0.5, BLOCKS[this.blockId || B.PLANK].side, 3);
+  if (Game.online && Net.connected && this === Game.player)
+    Net.send({ t: 'blk', x: hit.px, y: hit.py, z: hit.pz, b: this.blockId || B.PLANK });
+  return true;
+};
+Entity.prototype.breakBlock = function () {
+  if (this.dead) return false;
+  var hit = rayBlock(this, 4.6);
+  if (!hit) return false;
+  var id = getBlock(hit.x, hit.y, hit.z);
+  if (!id || !BLOCKS[id].breakable) return false;
+  editBlock(hit.x, hit.y, hit.z, 0);
+  this.swingArm();
+  Snd.breakBlock();
+  burstBlock(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5, BLOCKS[id].side, 8);
+  if (this.blocks < 64) this.blocks++;
+  if (Game.online && Net.connected && this === Game.player)
+    Net.send({ t: 'blk', x: hit.x, y: hit.y, z: hit.z, b: 0 });
+  return true;
+};
 
 /* ---------- 하늘 돔 / 구름 ---------- */
 function buildSkyDome() {
@@ -2105,6 +2250,7 @@ function Entity(o) {
   this.kit = KITS.classic; this.gapples = 8; this.pearls = 3; this.pearlCool = 0;
   this.winds = 0; this.fireworks = 0; this.hasMace = false; this.hasElytra = false;
   this.gliding = false; this.windCool = 0; this.fwCool = 0; this.glideT = 0;
+  this.blocks = 0; this.blockId = B.PLANK; this.placeCool = 0;
   this.netQueue = [];
   this.stats = { hits: 0, swings: 0, crits: 0, dmgDealt: 0, dmgTaken: 0, combo: 0, maxCombo: 0, blocked: 0,
     gapples: 0, beams: 0, rages: 0, beamHits: 0 };
@@ -2113,6 +2259,7 @@ function Entity(o) {
   this.ult = 0; this.rageTicks = 0; this.beamCool = 0; this.auraT = 0;
   /* --- 모드 --- */
   this.anchorPos = null; this.anchorCharges = 0; this._regenT = 0; this._abT = 0;
+  this.godMode = false;
 }
 
 Entity.prototype.bb = function () {
@@ -2156,6 +2303,8 @@ Entity.prototype.reset = function (sp) {
   this.winds = Inv.wind ? INV_COUNTS.winds : 0;
   this.fireworks = Inv.firework ? INV_COUNTS.fireworks : 0;
   this.hasMace = !!Inv.mace; this.hasElytra = !!Inv.elytra;
+  this.blocks = Inv.blocks ? INV_COUNTS.blocks : 0;
+  this.blockId = B.PLANK; this.placeCool = 0;
   this.gliding = false; this.windCool = 0; this.fwCool = 0; this.glideT = 0;
   this.sprinting = false; this.sneaking = false; this.pearlCool = 0;
   this.ult = 0; this.rageTicks = 0; this.beamCool = 0;
@@ -2218,6 +2367,7 @@ Entity.prototype.tick = function () {
   if (this.pearlCool > 0) this.pearlCool--;
   if (this.windCool > 0) this.windCool--;
   if (this.fwCool > 0) this.fwCool--;
+  if (this.placeCool > 0) this.placeCool--;
   this.ticksSinceSwing++;
   /* 격노 */
   if (this.rageTicks > 0) {
@@ -2423,6 +2573,7 @@ Entity.prototype.damageEntity = function (amount, attacker, bypassArmor) {
 Entity.prototype.hurt = function (amount, attacker, opts) {
   opts = opts || {};
   if (this.dead || this.health <= 0) return 0;
+  if (this.godMode) return 0;                     // /god
   var blocked = false;
   if (amount > 0 && this.canBlockDamage(attacker)) {
     blocked = true; amount = 0;
@@ -2634,6 +2785,7 @@ Entity.prototype.startUse = function () {
   if (key === 'pearl') { this.throwPearl(); return; }
   if (key === 'wind') { this.throwWind(); return; }
   if (key === 'firework') { this.useFirework(); return; }
+  if (key === 'blocks') { this.placeBlock(); return; }
   if (key === 'mace') { this.blocking = false; return; }   // 철퇴는 막기 불가
   if (key === 'gapple' && this.gapples > 0) {
     if (!this.eating) { this.eating = true; this.eatTicks = 0; }
@@ -3566,6 +3718,10 @@ Render.frame = function (alpha) {
   this.drawParticles(alpha);
   this.drawRings(alpha);
 
+  /* ---- 블록을 들고 있으면 조준 중인 칸을 표시 ---- */
+  if (Game.state === 'play' && Game.player && !Game.player.dead && invAt(Game.player.slot) === 'blocks')
+    this.drawBlockCursor();
+
   /* ---- 1인칭 손 ---- */
   if (!this.thirdPerson && !Game.player.dead) this.drawHand(alpha);
 };
@@ -4053,8 +4209,39 @@ function heldIcon(e) {
   if (k === 'mace') return 'mace';
   if (k === 'wind') return 'wind_charge';
   if (k === 'firework') return 'firework';
+  if (k === 'blocks') return 'plank_block';
   return e.kit.item;
 }
+/* 설치/파괴 대상 칸을 반투명 상자로 표시 */
+Render.drawBlockCursor = function () {
+  var p = Game.player;
+  var hit = rayBlock(p, 4.6);
+  if (!hit) return;
+  var place = p.blocks > 0 && hit.px >= 0 && getBlock(hit.px, hit.py, hit.pz) === 0;
+  if (!this.cursorMesh) {
+    var mb = new MB(), uv = tileUV(T.WHITE);
+    var e = 0.503;
+    var V = [[-e,-e,-e],[e,-e,-e],[e,e,-e],[-e,e,-e],[-e,-e,e],[e,-e,e],[e,e,e],[-e,e,e]];
+    var F2 = [[0,3,2,1],[4,5,6,7],[0,1,5,4],[3,7,6,2],[0,4,7,3],[1,2,6,5]];
+    for (var i = 0; i < 6; i++) {
+      var f = F2[i];
+      mb.quad(V[f[0]], V[f[1]], V[f[2]], V[f[3]],
+        (uv[0]+uv[2])/2,(uv[1]+uv[3])/2,(uv[0]+uv[2])/2,(uv[1]+uv[3])/2, 1,1,1,1, 1,1,1, false);
+    }
+    this.cursorMesh = mb.build();
+  }
+  gl.bindTexture(gl.TEXTURE_2D, this.texAtlas);
+  gl.enable(gl.BLEND); gl.depthMask(false); gl.disable(gl.CULL_FACE);
+  gl.uniform1f(U.uCut, 0.0);
+  var t = place ? { x: hit.px, y: hit.py, z: hit.pz } : hit;
+  gl.uniform4f(U.uTint, place ? 0.55 : 1.0, place ? 1.0 : 0.45, place ? 0.75 : 0.35, 1);
+  gl.uniform1f(U.uAlpha, 0.22 + Math.sin(Game.now * 0.006) * 0.06);
+  this.ms.identity().translate(t.x + 0.5, t.y + 0.5, t.z + 0.5);
+  gl.uniformMatrix4fv(U.uModel, false, this.ms.cur);
+  this.cursorMesh.draw();
+  gl.uniform4f(U.uTint, 0, 0, 0, 0); gl.uniform1f(U.uAlpha, 1); gl.uniform1f(U.uCut, 0.35);
+  gl.depthMask(true); gl.enable(gl.CULL_FACE); gl.disable(gl.BLEND);
+};
 Render.drawWinds = function (alpha) {
   if (!winds.length || !ItemMeshes.wind_charge) return;
   gl.bindTexture(gl.TEXTURE_2D, this.texAtlas);
@@ -4974,6 +5161,8 @@ Net.handle = function (raw) {
     case 'b': Game.netRemoteBeam(m); break;
     case 'p': Game.netRemotePearl(m); break;
     case 'w': Game.netRemoteWind(m); break;
+    case 'blk': Game.netRemoteBlock(m); break;
+    case 'msg': Game.log('<' + (Net.remoteName || '상대') + '> ' + String(m.m || '').slice(0, 160), '#bfe9ff'); break;
     case 'g': Game.netRemoteRage(m); break;
     case 'r': Game.netRound(m); break;     // 방장의 라운드 제어
     case 'confuse': if (r) r.yaw = wrapDeg(r.yaw + rnd(-50, 50)); break;
@@ -5062,14 +5251,16 @@ var INV_ITEMS = [
     d: '우클릭 투척 → 터지며 주변을 날려버린다 (발밑에 쏘면 자기 점프)' },
   { k: 'firework', slot: 6, n: '폭죽 로켓', icon: 'firework', cnt: 'fireworks',
     d: '겉날개로 활공하는 중 우클릭 → 앞으로 가속' },
+  { k: 'blocks', slot: 7, n: '블록', icon: 'plank_block', cnt: 'blocks',
+    d: '우클릭 설치 · 좌클릭 파괴 — 다리를 놓거나 벽을 세워 막는다' },
   { k: 'elytra', slot: -1, n: '겉날개', icon: 'elytra', cnt: null,
     d: '공중에서 점프 키를 누르면 활공 시작 · 착지하면 자동 해제' },
   { k: 'armor', slot: -1, n: '방어구', icon: null, cnt: null,
     d: '끄면 킷이 주는 방어구가 사라집니다 (알몸 PvP)' }
 ];
-var INV_COUNTS = { winds: 6, fireworks: 12 };
+var INV_COUNTS = { winds: 6, fireworks: 12, blocks: 64 };
 var Inv = { gapple: true, pearl: true, anchor: true, mace: false, wind: false,
-            firework: false, elytra: false, armor: true };
+            firework: false, blocks: false, elytra: false, armor: true };
 /* 슬롯 번호 → 아이템 키 */
 function invAt(slot) {
   for (var i = 0; i < INV_ITEMS.length; i++)
@@ -5223,7 +5414,8 @@ Game.hotbar = function () {
       cd: COMBAT.mode === 19 ? p.attackStrength(0) : 1 } : null,
     (Inv.wind && p.winds > 0) ? { icon: 'wind_charge', name: '바람 충전기 (우클릭 투척)', count: p.winds } : null,
     (Inv.firework && p.fireworks > 0) ? { icon: 'firework', name: '폭죽 로켓 (활공 중 우클릭)', count: p.fireworks } : null,
-    null, null
+    (Inv.blocks && p.blocks > 0) ? { icon: 'plank_block', name: '블록 (우클릭 설치 · 좌클릭 파괴)', count: p.blocks } : null,
+    null
   ];
   if (p.kit.sharp) arr[0].name = swordName + ' (날카로움 ' + ['I', 'II', 'III', 'IV', 'V'][Math.min(4, p.kit.sharp - 1)] + ')';
   return arr;
@@ -5418,6 +5610,12 @@ Game.netRemotePearl = function (m) {
   pearls.push(new Pearl(this.bot, m.x, m.y, m.z, m.dx, m.dy, m.dz));
   Snd.ender();
 };
+Game.netRemoteBlock = function (m) {
+  if (editBlock(m.x, m.y, m.z, m.b | 0)) {
+    if (m.b) { Snd.place(); burstBlock(m.x + 0.5, m.y + 0.5, m.z + 0.5, BLOCKS[m.b].side, 3); }
+    else { Snd.breakBlock(); burstBlock(m.x + 0.5, m.y + 0.5, m.z + 0.5, T.PLANK, 6); }
+  }
+};
 Game.netRemoteWind = function (m) {
   winds.push(new WindCharge(this.bot, m.x, m.y, m.z, m.dx, m.dy, m.dz));
   Snd.windThrow();
@@ -5605,6 +5803,11 @@ Game.readInput = function () {
     else if (M.autoAtk && Input.mouseDown[0] && !p.blocking && !p.eating && cpsOk) this.doAttack();
   }
 
+  /* 블록 : 우클릭을 누르고 있으면 계속 설치 (다리 놓기) */
+  if (invAt(p.slot) === 'blocks' && (Input.mouseDown[2] || TouchIn.useHeld) && p.placeCool === 0) {
+    if (p.placeBlock()) p.placeCool = 4;
+  }
+
   /* 터치 : 공격 버튼을 누르고 있으면 쿨다운이 찰 때마다 자동으로 휘두른다 */
   if (TouchIn.attackHeld && !p.blocking && !p.eating &&
       (COMBAT.mode === 19 ? p.attackStrength(0.5) >= 0.98 : p.ticksSinceSwing >= 3)) this.doAttack();
@@ -5638,6 +5841,12 @@ Game.doAttack = function () {
   var p = this.player;
   if (p.dead || this.state !== 'play' || p.eating) return;
   if (p.blocking) p.blocking = false;
+  /* 블록을 들고 있으면 좌클릭은 블록 파괴 (상대가 사거리 안이면 공격 우선) */
+  if (invAt(p.slot) === 'blocks') {
+    var b = this.bot, near = b && !b.dead &&
+      Math.sqrt((b.x - p.x) * (b.x - p.x) + (b.z - p.z) * (b.z - p.z)) < 3.2;
+    if (!near && p.breakBlock()) return;
+  }
   p.attemptAttack(this.bot);
 };
 
@@ -5769,7 +5978,7 @@ function loop(ts) {
   /* 터치 조작은 실제 플레이 중에만 보이게 (메뉴/일시정지/핵 창 위에 겹치지 않도록) */
   var tEl = TouchIn.on ? document.getElementById('touch') : null;
   if (tEl) {
-    var show = Game.state === 'play' && !Game.paused && !_hackPanelOpen && !_hackerPanelOpen;
+    var show = Game.state === 'play' && !Game.paused && !_hackPanelOpen && !_hackerPanelOpen && !ChatUI.open;
     if (show !== _touchShown) {
       _touchShown = show;
       tEl.style.display = show ? 'block' : 'none';
@@ -5869,6 +6078,337 @@ function showMenu() {
   $('#btnMods').onclick = function () { Snd.click(); showMods(showMenu); };
   $('#btnSet').onclick = function () { Snd.click(); showSettings(showMenu); };
   $('#btnKeys').onclick = function () { Snd.click(); showKeys(showMenu); };
+}
+
+/* =====================================================================
+   채팅 / 명령어
+   ===================================================================== */
+var ChatUI = { open: false, hist: [], hi: -1, sug: [], si: 0 };
+
+function cLog(s, c) { Game.log(s, c || '#e8e8ee'); }
+function cErr(s) { Game.log('✖ ' + s, '#ff7a7a'); }
+function cOk(s) { Game.log('✔ ' + s, '#7dff9b'); }
+
+/* 이름 목록에서 부분 일치 찾기 */
+function pick(list, q) {
+  q = (q || '').toLowerCase();
+  for (var i = 0; i < list.length; i++) if (list[i].toLowerCase() === q) return list[i];
+  for (var j = 0; j < list.length; j++) if (list[j].toLowerCase().indexOf(q) === 0) return list[j];
+  return null;
+}
+function onOff(a, cur) {
+  if (a === undefined || a === '') return !cur;
+  return /^(on|1|true|켜|켜기|y)$/i.test(a);
+}
+
+var CMDS = [
+  { n: 'help', a: '[명령어]', d: '명령어 목록 또는 상세 도움말', f: function (a) {
+      if (a[0]) {
+        var c = pick(CMDS.map(function (x) { return x.n; }), a[0]);
+        var cm = c && CMDS.filter(function (x) { return x.n === c; })[0];
+        if (!cm) return cErr('그런 명령어가 없습니다: ' + a[0]);
+        cLog('/' + cm.n + ' ' + cm.a, '#ffd93d'); cLog('  ' + cm.d, '#a0a0c0');
+        return;
+      }
+      cLog('─── 명령어 ' + CMDS.length + '개 ───', '#ffd93d');
+      for (var i = 0; i < CMDS.length; i++) cLog('/' + CMDS[i].n + ' ' + CMDS[i].a + '  —  ' + CMDS[i].d, '#b8bdcd');
+    } },
+  { n: 'heal', a: '[양]', d: '체력 회복 (생략하면 풀피 + 배부름)', f: function (a) {
+      var p = Game.player;
+      if (a[0]) p.heal(parseFloat(a[0]) || 0);
+      else { p.health = p.maxHealth; p.food = 20; p.saturation = 5; }
+      cOk('체력 ' + p.health.toFixed(1));
+    } },
+  { n: 'hp', a: '<값> [me|bot]', d: '체력을 지정한 값으로 설정', f: function (a) {
+      var t = (a[1] === 'bot') ? Game.bot : Game.player;
+      var v = parseFloat(a[0]);
+      if (isNaN(v)) return cErr('숫자를 입력하세요');
+      t.health = clamp(v, 0.1, t.maxHealth);
+      cOk(t.name + ' 체력 → ' + t.health.toFixed(1));
+    } },
+  { n: 'kill', a: '[me|bot]', d: '즉시 처치', f: function (a) {
+      var t = (a[0] === 'me') ? Game.player : Game.bot;
+      if (!t || t.dead) return cErr('이미 쓰러졌습니다');
+      t.health = 0; t.die(a[0] === 'me' ? null : Game.player, 'melee');
+      cOk(t.name + ' 처치');
+    } },
+  { n: 'god', a: '[on|off]', d: '무적 모드', f: function (a) {
+      Game.player.godMode = onOff(a[0], Game.player.godMode);
+      cOk('무적 ' + (Game.player.godMode ? '켜짐' : '꺼짐'));
+    } },
+  { n: 'ult', a: '[값]', d: '궁극 게이지 설정 (기본 100)', f: function (a) {
+      Game.player.ult = clamp(a[0] === undefined ? 100 : parseFloat(a[0]), 0, 100);
+      cOk('게이지 ' + Game.player.ult.toFixed(0));
+    } },
+  { n: 'give', a: '<gapple|pearl|wind|firework> [개수]', d: '아이템 지급', f: function (a) {
+      var map = { gapple: 'gapples', pearl: 'pearls', wind: 'winds', firework: 'fireworks' };
+      var k = pick(Object.keys(map), a[0]);
+      if (!k) return cErr('아이템: gapple / pearl / wind / firework');
+      var n = a[1] === undefined ? 8 : (parseInt(a[1], 10) || 0);
+      Game.player[map[k]] += n;
+      var invKey = { gapple: 'gapple', pearl: 'pearl', wind: 'wind', firework: 'firework' }[k];
+      if (!Inv[invKey]) { Inv[invKey] = true; cLog('  (인벤토리에 자동으로 넣었습니다)', '#8a8aaa'); }
+      cOk(k + ' +' + n + ' → ' + Game.player[map[k]] + '개');
+    } },
+  { n: 'inv', a: '<아이템|list> [on|off]', d: '인벤토리 아이템 넣기/빼기', f: function (a) {
+      var keys = INV_ITEMS.map(function (i) { return i.k; });
+      if (!a[0] || a[0] === 'list') {
+        cLog('─── 인벤토리 ───', '#ffd93d');
+        INV_ITEMS.forEach(function (i) {
+          cLog((Inv[i.k] ? '● ' : '○ ') + i.k + '  (' + i.n + ')', Inv[i.k] ? '#7dff9b' : '#6a6a85');
+        });
+        return;
+      }
+      var k = pick(keys, a[0]);
+      if (!k) return cErr('아이템: ' + keys.join(' / '));
+      Inv[k] = onOff(a[1], Inv[k]);
+      if (Game.player) Game.player.slot = 0;
+      cOk(k + ' ' + (Inv[k] ? '인벤토리에 넣음' : '인벤토리에서 뺌'));
+    } },
+  { n: 'hack', a: '<모듈|list> [on|off|값]', d: '핵 모듈 토글 / 설정값 변경', f: function (a) {
+      if (!a[0] || a[0] === 'list') {
+        cLog('─── 모듈 ' + HACK_MODULES.length + '개 ───', '#ffd93d');
+        HACK_CATS.forEach(function (cat) {
+          var ms = HACK_MODULES.filter(function (m) { return m.c === cat && !m.botOnly; });
+          if (ms.length) cLog('[' + cat + '] ' + ms.map(function (m) {
+            return (Hacks[m.k] ? '●' : '○') + m.n; }).join('  '), '#b8bdcd');
+        });
+        return;
+      }
+      var names = HACK_MODULES.map(function (m) { return m.n; });
+      var found = pick(names, a[0]) || pick(HACK_MODULES.map(function (m) { return m.k; }), a[0]);
+      var mod = HACK_MODULES.filter(function (m) { return m.n === found || m.k === found; })[0];
+      if (!mod) return cErr('그런 모듈이 없습니다. /hack list 로 확인하세요');
+      /* 숫자를 주면 첫 번째 설정값을 바꾼다 */
+      if (a[1] !== undefined && !isNaN(parseFloat(a[1])) && mod.s) {
+        var s = mod.s[0];
+        Hacks[s.k] = clamp(parseFloat(a[1]), s.min, s.max);
+        Hacks[mod.k] = true; Hacks.on = true;
+        return cOk(mod.n + ' ' + s.n + ' → ' + Hacks[s.k] + (s.u || ''));
+      }
+      Hacks[mod.k] = onOff(a[1], Hacks[mod.k]);
+      if (Hacks[mod.k]) Hacks.on = true;
+      if (!RoomCfg.allowHack) { RoomCfg.allowHack = true; cLog('  (핵 사용을 허용으로 바꿨습니다)', '#8a8aaa'); }
+      cOk(mod.n + ' ' + (Hacks[mod.k] ? 'ON' : 'OFF'));
+      if (_hackPanelOpen) buildHackPanel();
+    } },
+  { n: 'aihack', a: '<모듈|list|all|none> [on|off]', d: 'AI 에게 핵 끼우기', f: function (a) {
+      var botMods = HACK_MODULES.filter(function (m) { return m.bot; });
+      if (!a[0] || a[0] === 'list') {
+        cLog('─── AI 모듈 ───', '#ffd93d');
+        cLog(botMods.map(function (m) { return (BotMods[m.k] ? '●' : '○') + m.n; }).join('  '), '#b8bdcd');
+        return;
+      }
+      if (a[0] === 'all' || a[0] === 'none') {
+        var v = a[0] === 'all';
+        botMods.forEach(function (m) { BotMods[m.k] = v; });
+        BotMods.on = v;
+        return cOk('AI 핵 ' + (v ? '전부 켬' : '전부 끔'));
+      }
+      var f2 = pick(botMods.map(function (m) { return m.n; }), a[0]) ||
+               pick(botMods.map(function (m) { return m.k; }), a[0]);
+      var mod2 = botMods.filter(function (m) { return m.n === f2 || m.k === f2; })[0];
+      if (!mod2) return cErr('AI 모듈이 아닙니다. /aihack list 로 확인하세요');
+      BotMods[mod2.k] = onOff(a[1], BotMods[mod2.k]);
+      if (BotMods[mod2.k]) BotMods.on = true;
+      cOk('AI ' + mod2.n + ' ' + (BotMods[mod2.k] ? 'ON' : 'OFF'));
+    } },
+  { n: 'kit', a: '<이름|list>', d: '킷 변경 (다음 라운드부터)', f: function (a) {
+      var keys = Object.keys(KITS);
+      if (!a[0] || a[0] === 'list') return cLog('킷: ' + keys.join(' / '), '#ffd93d');
+      var k = pick(keys, a[0]);
+      if (!k) return cErr('킷: ' + keys.join(' / '));
+      Game.kit = KITS[k];
+      Game.player.setKit(Game.kit); Game.bot.setKit(Game.kit);
+      cOk('킷 → ' + KITS[k].name);
+    } },
+  { n: 'diff', a: '<이름|list>', d: 'AI 난이도 변경', f: function (a) {
+      var keys = Object.keys(DIFFS);
+      if (!a[0] || a[0] === 'list') return cLog('난이도: ' + keys.join(' / '), '#ffd93d');
+      var k = pick(keys, a[0]);
+      if (!k) return cErr('난이도: ' + keys.join(' / '));
+      Game.diff = DIFFS[k];
+      if (Game.ai) Game.ai.setDiff(Game.diff);
+      cOk('난이도 → ' + DIFFS[k].name);
+    } },
+  { n: 'map', a: '<id|list>', d: '맵 변경 (다음 대결부터)', f: function (a) {
+      var ids = MAPS.map(function (m) { return m.id; });
+      if (!a[0] || a[0] === 'list') return cLog('맵: ' + ids.join(' / '), '#ffd93d');
+      var k = pick(ids, a[0]);
+      if (!k) return cErr('맵: ' + ids.join(' / '));
+      for (var i = 0; i < MAPS.length; i++) if (MAPS[i].id === k) Game.map = MAPS[i];
+      cOk('맵 → ' + Game.map.name + ' (다음 대결부터 적용)');
+    } },
+  { n: 'tp', a: '<x y z|bot|spawn>', d: '순간이동', f: function (a) {
+      var p = Game.player;
+      if (a[0] === 'bot' && Game.bot) {
+        p.x = Game.bot.x + 1.2; p.y = Game.bot.y; p.z = Game.bot.z;
+      } else if (a[0] === 'spawn' || !a.length) {
+        p.x = CX + 0.5; p.y = SURF + 1; p.z = CZ + 0.5;
+      } else {
+        if (a.length < 3) return cErr('사용법: /tp <x> <y> <z>');
+        p.x = parseFloat(a[0]); p.y = parseFloat(a[1]); p.z = parseFloat(a[2]);
+        if (isNaN(p.x) || isNaN(p.y) || isNaN(p.z)) return cErr('좌표가 잘못됐습니다');
+      }
+      p.px = p.x; p.py = p.y; p.pz = p.z;
+      p.vx = p.vy = p.vz = 0; p.fallDistance = 0;
+      cOk('이동 → ' + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + ' ' + p.z.toFixed(1));
+    } },
+  { n: 'pos', a: '', d: '현재 좌표 표시', f: function () {
+      var p = Game.player;
+      cLog('내 위치  ' + p.x.toFixed(1) + ' / ' + p.y.toFixed(1) + ' / ' + p.z.toFixed(1) +
+        '   yaw ' + p.yaw.toFixed(0), '#7dff9b');
+    } },
+  { n: 'effect', a: '<rage|regen|absorb> [값]', d: '효과 부여', f: function (a) {
+      var p = Game.player, k = pick(['rage', 'regen', 'absorb'], a[0]);
+      if (!k) return cErr('효과: rage / regen / absorb');
+      var v = parseFloat(a[1]);
+      if (k === 'rage') { p.rageTicks = isNaN(v) ? RAGE_TICKS : v * 20; cOk('격노 ' + (p.rageTicks / 20).toFixed(1) + '초'); }
+      if (k === 'regen') { p.regenTicks = isNaN(v) ? 100 : v * 20; p.regenAmp = 1; cOk('재생 ' + (p.regenTicks / 20).toFixed(1) + '초'); }
+      if (k === 'absorb') { p.absorption = isNaN(v) ? 8 : v; cOk('흡수 ' + p.absorption); }
+    } },
+  { n: 'bo', a: '<1|2|3|5|7>', d: '선승 횟수 변경', f: function (a) {
+      var n = parseInt(a[0], 10);
+      if (!n || n < 1 || n > 9) return cErr('1~9 사이 숫자');
+      Game.settings.bo = n; RoomCfg.winsNeeded = n;
+      cOk(n + '선승으로 변경');
+    } },
+  { n: 'combat', a: '<18|19>', d: '전투 시스템 전환', f: function (a) {
+      var m = parseInt(a[0], 10);
+      if (m !== 18 && m !== 19) return cErr('18 또는 19');
+      COMBAT.mode = m; cOk((m === 19 ? '1.9+ (쿨다운)' : '1.8 (연타)') + ' 전투');
+    } },
+  { n: 'restart', a: '', d: '라운드 다시 시작', f: function () { Game.startRound(); cOk('라운드 재시작'); } },
+  { n: 'score', a: '', d: '현재 점수', f: function () {
+      cLog('점수  나 ' + Game.score[0] + ' : ' + Game.score[1] + ' 상대   (' +
+        (RoomCfg.winsNeeded || Game.settings.bo) + '선승)', '#ffd93d');
+    } },
+  { n: 'speed', a: '<배율>', d: '게임 진행 속도 (Timer)', f: function (a) {
+      var v = parseFloat(a[0]);
+      if (isNaN(v)) return cErr('예: /speed 2');
+      Hacks.timerSpeed = clamp(v, 0.25, 4); Hacks.timer = v !== 1; Hacks.on = true;
+      cOk('진행 속도 ' + Hacks.timerSpeed + 'x');
+    } },
+  { n: 'fly', a: '[on|off]', d: '날기 (핵 모듈 단축)', f: function (a) {
+      Hacks.fly = onOff(a[0], Hacks.fly);
+      if (Hacks.fly) { Hacks.on = true; RoomCfg.allowHack = true; }
+      cOk('날기 ' + (Hacks.fly ? 'ON' : 'OFF'));
+      if (_hackPanelOpen) buildHackPanel();
+    } },
+  { n: 'clear', a: '', d: '채팅 지우기', f: function () { Game.logLines.length = 0; } },
+  { n: 'say', a: '<메시지>', d: '상대에게 채팅 (온라인)', f: function (a) { sendChat(a.join(' ')); } }
+];
+
+function sendChat(msg) {
+  msg = (msg || '').trim();
+  if (!msg) return;
+  Game.log('<' + (Game.myName || '나') + '> ' + msg, '#ffffff');
+  if (Game.online && Net.connected) Net.send({ t: 'msg', m: msg.slice(0, 160) });
+}
+
+function runCommand(line) {
+  var parts = line.slice(1).trim().split(/\s+/);
+  var name = (parts.shift() || '').toLowerCase();
+  if (!name) return;
+  var cm = CMDS.filter(function (c) { return c.n === name; })[0];
+  if (!cm) {
+    var near = pick(CMDS.map(function (c) { return c.n; }), name);
+    cErr('알 수 없는 명령어: /' + name + (near ? '  —  /' + near + ' 를 찾으셨나요?' : '  ( /help 로 목록 )'));
+    return;
+  }
+  try { cm.f(parts); }
+  catch (e) { cErr('명령 실행 중 오류: ' + e.message); }
+}
+
+/* ---- 자동완성 ---- */
+function chatSuggest() {
+  var box = document.getElementById('chatSug');
+  var v = document.getElementById('chatIn').value;
+  ChatUI.sug = [];
+  if (v.charAt(0) === '/' && v.indexOf(' ') < 0) {
+    var q = v.slice(1).toLowerCase();
+    ChatUI.sug = CMDS.filter(function (c) { return c.n.indexOf(q) === 0; })
+                     .map(function (c) { return { n: c.n, a: c.a, d: c.d }; });
+  }
+  if (!ChatUI.sug.length) { box.classList.remove('on'); box.innerHTML = ''; return; }
+  if (ChatUI.si >= ChatUI.sug.length) ChatUI.si = 0;
+  box.innerHTML = ChatUI.sug.map(function (s, i) {
+    return '<div class="csug' + (i === ChatUI.si ? ' sel' : '') + '" data-c="' + s.n + '">' +
+      '<b>/' + s.n + '</b><span>' + (s.a ? s.a + '  ·  ' : '') + s.d + '</span></div>';
+  }).join('');
+  box.classList.add('on');
+  box.querySelectorAll('[data-c]').forEach(function (d) {
+    d.onmousedown = function (e) {
+      e.preventDefault();
+      var inp = document.getElementById('chatIn');
+      inp.value = '/' + this.getAttribute('data-c') + ' ';
+      inp.focus(); chatSuggest();
+    };
+  });
+}
+
+function openChat(prefill) {
+  if (ChatUI.open) return;
+  ChatUI.open = true; ChatUI.hi = -1; ChatUI.si = 0;
+  var el = document.getElementById('chat'), inp = document.getElementById('chatIn');
+  el.classList.add('on');
+  inp.value = prefill || '';
+  if (document.exitPointerLock) document.exitPointerLock();
+  Input.keys = {}; Input.mouseDown = [false, false, false];
+  setTimeout(function () { inp.focus(); chatSuggest(); }, 0);
+}
+function closeChat() {
+  if (!ChatUI.open) return;
+  ChatUI.open = false;
+  document.getElementById('chat').classList.remove('on');
+  document.getElementById('chatSug').classList.remove('on');
+  document.getElementById('chatIn').blur();
+  if (Game.state === 'play' && !Game.paused && !_hackPanelOpen && !_hackerPanelOpen) requestLock();
+}
+function submitChat() {
+  var inp = document.getElementById('chatIn');
+  var v = inp.value.trim();
+  if (v) {
+    ChatUI.hist.push(v);
+    if (ChatUI.hist.length > 50) ChatUI.hist.shift();
+    if (v.charAt(0) === '/') runCommand(v); else sendChat(v);
+  }
+  inp.value = '';
+  closeChat();
+}
+
+function bindChat() {
+  var inp = document.getElementById('chatIn');
+  if (!inp) return;
+  inp.addEventListener('input', function () { ChatUI.si = 0; chatSuggest(); });
+  inp.addEventListener('keydown', function (e) {
+    e.stopPropagation();
+    if (e.key === 'Enter') { e.preventDefault(); submitChat(); }
+    else if (e.key === 'Escape') { e.preventDefault(); this.value = ''; closeChat(); }
+    else if (e.key === 'Tab') {
+      e.preventDefault();
+      if (ChatUI.sug.length) { this.value = '/' + ChatUI.sug[ChatUI.si].n + ' '; chatSuggest(); }
+    }
+    else if (e.key === 'ArrowDown' && ChatUI.sug.length > 1) {
+      e.preventDefault(); ChatUI.si = (ChatUI.si + 1) % ChatUI.sug.length; chatSuggest();
+    }
+    else if (e.key === 'ArrowUp' && ChatUI.sug.length > 1) {
+      e.preventDefault(); ChatUI.si = (ChatUI.si - 1 + ChatUI.sug.length) % ChatUI.sug.length; chatSuggest();
+    }
+    else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (ChatUI.hi < 0) ChatUI.hi = ChatUI.hist.length;
+      ChatUI.hi = Math.max(0, ChatUI.hi - 1);
+      if (ChatUI.hist[ChatUI.hi]) this.value = ChatUI.hist[ChatUI.hi];
+    }
+    else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (ChatUI.hi < 0) return;
+      ChatUI.hi = Math.min(ChatUI.hist.length, ChatUI.hi + 1);
+      this.value = ChatUI.hist[ChatUI.hi] || '';
+    }
+  });
+  inp.addEventListener('keyup', function (e) { e.stopPropagation(); });
 }
 
 /* ---------------- 인벤토리 설정 화면 ---------------- */
@@ -6504,6 +7044,7 @@ function bindTouch() {
     el.addEventListener('touchstart', function (e) { e.preventDefault(); e.stopPropagation(); fn(); }, { passive: false });
     el.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); fn(); });
   }
+  tap('tChat', function () { openChat('/'); });
   tap('tPause', function () { if (Game.paused) resumeGame(); else showPause(); });
   tap('tHackBtn', function () { if (RoomCfg.allowHack) toggleHackPanel(); });
   tap('tHackerBtn', function () { if (RoomCfg.allowHacker) toggleHackerPanel(); });
@@ -6514,7 +7055,14 @@ function bindInput() {
   var lastW = 0;
 
   document.addEventListener('keydown', function (e) {
+    if (ChatUI.open) return;                       // 채팅 입력 중엔 게임 키 무시
     if (e.code === 'F5' || e.code === 'F3' || e.code === 'Tab') e.preventDefault();
+    /* 채팅 열기 : T = 채팅, / 또는 Enter = 명령어 */
+    if (Game.state === 'play' && !Game.paused) {
+      if (e.code === 'KeyT') { e.preventDefault(); openChat(''); return; }
+      if (e.key === '/') { e.preventDefault(); openChat('/'); return; }
+      if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); openChat(''); return; }
+    }
     if (Input.keys[e.code]) { return; }
     Input.keys[e.code] = true;
     if (e.code === 'Escape') {
@@ -6540,12 +7088,14 @@ function bindInput() {
     if (n) selectSlot(parseInt(n[1], 10) - 1);
   });
   document.addEventListener('keyup', function (e) {
+    if (ChatUI.open) return;
     Input.keys[e.code] = false;
     if (e.code === 'KeyR' && Game.player && Game.player.eating) Game.player.stopUse();
   });
 
   cv.addEventListener('mousedown', function (e) {
     if (TouchIn.on) return;                  // 터치 모드에선 화면 버튼이 담당
+    if (ChatUI.open) { closeChat(); return; }
     if (!Input.locked) {
       if (_hackPanelOpen || _hackerPanelOpen) {
         if (_hackPanelOpen) toggleHackPanel();
@@ -6587,7 +7137,7 @@ function bindInput() {
       Input.mouseDown[0] = Input.mouseDown[2] = false;
       if (Game.player) Game.player.stopUse();
       if (Game.state !== 'menu' && Game.state !== 'matchend' && !Game.paused &&
-          !_hackPanelOpen && !_hackerPanelOpen) showPause();
+          !_hackPanelOpen && !_hackerPanelOpen && !ChatUI.open) showPause();
     }
   });
   window.addEventListener('blur', function () {
@@ -6828,6 +7378,7 @@ function boot() {
           Snd.setVol(Game.settings.vol);
           bindInput();
           bindTouch();
+          bindChat();
           /* 터치 기기면 모바일 조작을 자동으로 켠다 */
           if (Game.settings.touchUI === null) Game.settings.touchUI = isTouchOnly();
           setTouchMode(Game.settings.touchUI);
