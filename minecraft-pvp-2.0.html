@@ -2397,6 +2397,8 @@ Entity.prototype.getSpeed = function () {
   if (this.rageTicks > 0) s *= 1.40;          // 격노 : 신속 II
   var M = modsFor(this);
   if (M && M.speed) s *= M.speedMult;
+  /* 머더 : 살인자는 조금 더 빠르다 (추격이 끝나도록) */
+  if (Game.mode === 'murder' && Game.mmIsMurderer(this)) s *= (MM.speedMul || 1);
   return s;
 };
 Entity.prototype.isRaging = function () { return this.rageTicks > 0; };
@@ -2492,6 +2494,7 @@ Entity.prototype.tick = function () {
   if (this.windCool > 0) this.windCool--;
   if (this.fwCool > 0) this.fwCool--;
   if (this.placeCool > 0) this.placeCool--;
+  if (this.bowCool > 0) this.bowCool--;
   this.ticksSinceSwing++;
   /* 격노 */
   if (this.rageTicks > 0) {
@@ -2827,6 +2830,15 @@ Entity.prototype.attemptAttack = function (target) {
 };
 
 Entity.prototype.performAttack = function (target, cooled) {
+  /* 머더 : 살인자의 칼은 즉사 */
+  if (Game.mode === 'murder' && Game.mmIsMurderer(this) && target && !target.dead) {
+    Game.mmReveal(this);
+    this.ticksSinceSwing = 0;
+    Snd.crit();
+    spawnRing(target.x, target.y + 1.0, target.z, 0.3, 2.4, 12, [1, 0.2, 0.2]);
+    var ap = target.hurt(1000, this, { bypassArmor: true, cause: 'murder' });
+    return { dmg: 1000, applied: ap, crit: true, sweep: false, cooled: 1, sprintKb: false };
+  }
   var k = this.kit;
   var mace = this.usingMace();
   var smash = 0;
@@ -2914,6 +2926,7 @@ Entity.prototype.startUse = function () {
   if (key === 'wind') { this.throwWind(); return; }
   if (key === 'firework') { this.useFirework(); return; }
   if (key === 'blocks') { this.placeBlock(); return; }
+  if (Game.mode === 'murder' && Game.mmHasBow(this)) { this.shootBow(); return; }
   if (key === 'mace') { this.blocking = false; return; }   // 철퇴는 막기 불가
   if (key === 'gapple' && this.gapples > 0) {
     if (!this.eating) { this.eating = true; this.eatTicks = 0; }
@@ -3380,6 +3393,7 @@ BotAI.prototype.tick = function (target) {
   var e = this.e, d = this.d;
   e.moveForward = 0; e.moveStrafe = 0; e.jumping = false;
   if (e.dead || !target) { e.sprinting = false; return; }
+  if (Game.mode === 'murder') { this.murder(); return; }
   if (Game.mode === 'bedwars' && this.bedwars(target)) return;
 
   /* --- 반응 지연용 위치 히스토리 --- */
@@ -3592,6 +3606,137 @@ BotAI.prototype.tick = function (target) {
    배드워즈 AI : 자원 모으기 → 다리 놓기 → 침대 부수기 → 교전
    true 를 돌려주면 이 틱은 배드워즈 로직이 전담한다
    ===================================================================== */
+/* =====================================================================
+   머더 AI — 역할에 따라 완전히 다르게 움직인다
+   ===================================================================== */
+BotAI.prototype.murder = function () {
+  var e = this.e;
+  var me = Game.mmIndexOf(e);
+  if (me < 0) return false;
+  if (this.killCool === undefined) this.killCool = 0;
+  var role = MM.roles[me];
+  e.moveForward = 0; e.moveStrafe = 0; e.jumping = false; e.sprinting = false;
+  if (MM.over) return true;
+
+  /* --- 목표 선정 --- */
+  var goal = null, flee = null, best = 1e9;
+  for (var i = 0; i < Game.entities.length; i++) {
+    var o = Game.entities[i];
+    if (o === e || o.dead) continue;
+    var dx = o.x - e.x, dz = o.z - e.z, d = Math.sqrt(dx * dx + dz * dz);
+    if (role === 'murderer') {
+      if (d < best) { best = d; goal = o; }
+    } else {
+      /* 정체가 드러난 살인자는 피하거나(시민) 쫓는다(활 소지자) */
+      if (MM.roles[i] === 'murderer' && MM.revealed[i]) {
+        if (Game.mmHasBow(e)) { goal = o; best = d; }
+        else if (d < 14) { flee = o; }
+      }
+    }
+  }
+  /* 활이 떨어져 있으면 주우러 간다 — 단 살인자가 그 근처면 포기 */
+  var bowSafe = MM.bowDrop && !(function () {
+    for (var q = 0; q < Game.entities.length; q++) {
+      if (MM.roles[q] !== 'murderer' || Game.entities[q].dead) continue;
+      var o2 = Game.entities[q];
+      return Math.hypot(o2.x - MM.bowDrop.x, o2.z - MM.bowDrop.z) < 7;
+    }
+    return false;
+  })();
+  if (role !== 'murderer' && !Game.mmHasBow(e) && bowSafe && !flee) {
+    goal = { x: MM.bowDrop.x, y: MM.bowDrop.y, z: MM.bowDrop.z, eyeY: function () { return this.y + 0.4; } };
+    best = Math.sqrt((goal.x - e.x) * (goal.x - e.x) + (goal.z - e.z) * (goal.z - e.z));
+  }
+
+  /* --- 배회 --- */
+  if (!goal && !flee) {
+    if (this.wanderT === undefined || --this.wanderT <= 0) {
+      this.wanderT = rndInt(40, 110);
+      var a = Math.random() * TAU, r = rnd(4, 12);
+      this.wx = CX + 0.5 + Math.cos(a) * r; this.wz = CZ + 0.5 + Math.sin(a) * r;
+    }
+    goal = { x: this.wx, y: e.y, z: this.wz, eyeY: function () { return this.y + 1.2; } };
+    best = 99;
+  }
+
+  var tx, tz, away = false;
+  if (flee) {
+    /* 살인자에게서 정면으로 멀어진다 (가장자리 처리는 아래 edge 블록이 접선으로 꺾어준다).
+       반대편 지점을 노리면 살인자를 지나쳐 달리게 되므로 쓰지 않는다. */
+    var ax = e.x - flee.x, az = e.z - flee.z;
+    var al = Math.sqrt(ax * ax + az * az) || 1;
+    tx = e.x + (ax / al) * 12;
+    tz = e.z + (az / al) * 12;
+    away = true;
+  }
+  else { tx = goal.x; tz = goal.z; }
+
+  var dx2 = tx - e.x, dz2 = tz - e.z;
+  var dist = Math.sqrt(dx2 * dx2 + dz2 * dz2) || 0.001;
+
+  /* 조준 : 도망칠 땐 진행 방향, 아니면 목표 */
+  var lookX = away ? dx2 : (goal ? goal.x - e.x : dx2);
+  var lookZ = away ? dz2 : (goal ? goal.z - e.z : dz2);
+  var wantYaw = Math.atan2(-lookX, lookZ) / DEG;
+  /* 도망칠 땐 뒷걸음질치지 않도록 빠르게 몸을 돌린다 (안 그러면 걷는 속도로 잡힌다) */
+  e.yaw = approachDeg(e.yaw, wantYaw, away ? 26 : this.d.turn);
+  if (goal && !away && goal.eyeY) {
+    var dy = goal.eyeY() - e.eyeY();
+    var fd = Math.sqrt(lookX * lookX + lookZ * lookZ);
+    e.pitch = clamp(approachDeg(e.pitch, -Math.atan2(dy, Math.max(0.6, fd)) / DEG, this.d.turn), -90, 90);
+  } else e.pitch = approachDeg(e.pitch, 0, 6);
+
+  /* 아레나 밖으로 나가지 않기 —
+     도망 중이면 중심으로 꺾지 말고 테두리를 따라 돈다 (살인자 품으로 뛰어들지 않도록) */
+  var edge = octDist(e.x - CX, e.z - CZ);
+  if (edge > 12.6) {
+    var cx = (CX + 0.5) - e.x, cz = (CZ + 0.5) - e.z, cl = Math.sqrt(cx * cx + cz * cz) || 1;
+    cx /= cl; cz /= cl;
+    if (away && flee) {
+      var tgx = -cz, tgz = cx;                       // 접선 방향
+      var fx = e.x - flee.x, fz = e.z - flee.z;      // 살인자 반대쪽 접선을 고른다
+      if (tgx * fx + tgz * fz < 0) { tgx = -tgx; tgz = -tgz; }
+      dx2 = tgx * 0.86 + cx * 0.34;
+      dz2 = tgz * 0.86 + cz * 0.34;
+      var nl = Math.sqrt(dx2 * dx2 + dz2 * dz2) || 1;
+      dx2 /= nl; dz2 /= nl;
+    } else { dx2 = cx; dz2 = cz; away = false; }
+    dist = 1;
+  }
+
+  /* 활을 든 쪽은 너무 가까워지면 조준을 유지한 채 뒷걸음질친다 (카이팅) */
+  var backpedal = (Game.mmHasBow(e) && goal && goal.hurt && best < 6.5);
+  if (backpedal) { dx2 = -(goal.x - e.x); dz2 = -(goal.z - e.z); dist = Math.max(0.001, best); }
+
+  /* 이동 */
+  var sy = Math.sin(e.yaw * DEG), cy = Math.cos(e.yaw * DEG);
+  var nx = dx2 / dist, nz = dz2 / dist;
+  var fwd = nx * (-sy) + nz * cy, stf = nx * cy + nz * sy;
+  var stop = (role === 'murderer') ? 1.4 : (Game.mmHasBow(e) ? 9.0 : 0.8);
+  if (away || backpedal || dist > stop) {
+    e.moveForward = Math.abs(fwd) > 0.34 ? sign(fwd) : 0;
+    e.moveStrafe = Math.abs(stf) > 0.34 ? sign(stf) : 0;
+    /* 살인자는 스토킹하듯 걷는다 (짧게 돌진할 때만 달림) — 도망칠 여지를 준다 */
+    var lunge = (role === 'murderer' && best < 4.5);
+    e.sprinting = (e.moveForward > 0 && e.food > 6 &&
+                   (away || backpedal || lunge || (role !== 'murderer' && dist > 3)));
+  }
+
+  /* --- 행동 --- */
+  if (this.killCool > 0) this.killCool--;
+  if (role === 'murderer' && goal && goal.hurt && best < 2.6 &&
+      e.ticksSinceSwing >= 12 && this.killCool === 0) {
+    e.attemptAttack(goal);
+    this.killCool = 140;                // 한 명 죽인 뒤엔 한참 물러선다 (연쇄 학살 방지)
+  } else if (Game.mmHasBow(e) && goal && goal.hurt && best < 22 && e.bowCool === 0) {
+    /* 조준이 얼추 맞으면 쏜다 */
+    var lv = e.lookVec();
+    var gx = goal.x - e.x, gz = goal.z - e.z, gl = Math.sqrt(gx * gx + gz * gz) || 1;
+    if ((gx / gl) * lv[0] + (gz / gl) * lv[2] > 0.93 && Math.random() < 0.55) e.shootBow();
+  }
+  return true;
+};
+
 BotAI.prototype.bedwars = function (target) {
   var e = this.e, d = this.d;
   var myIsle = BW_ISLE[1], foeIsle = BW_ISLE[0];
@@ -4599,6 +4744,7 @@ HUD.draw = function (alpha) {
   }
   /* ---- 배드워즈 HUD ---- */
   if (Game.mode === 'bedwars') this.drawBedwars();
+  if (Game.mode === 'murder') this.drawMurder();
   /* ---- 핵 클라이언트 오버레이 ---- */
   this.drawClientOverlay();
 
@@ -4957,6 +5103,48 @@ function railColor(i, t) {
   var f = function (n) { var k = (n + h * 6) % 6; return Math.round(255 * clamp(Math.min(k, 4 - k, 1), 0, 1) * 0.75 + 64); };
   return 'rgb(' + f(5) + ',' + f(3) + ',' + f(1) + ')';
 }
+
+HUD.drawMurder = function () {
+  var c = this.ctx, W = this.W, H = this.H, S = this.S;
+  var myRole = MM.roles[0] || 'innocent';
+  var info = { murderer: ['살인자', '#ff5c5c', '좌클릭 = 즉사'],
+               detective: ['탐정', '#6fd0ff', '우클릭 = 활 발사'],
+               innocent: ['시민', '#7dff9b', '도망치세요'] }[myRole];
+  /* 역할 카드 (좌측 중앙) */
+  var rx = 8 * S, ry = H * 0.5 - 10 * S;
+  c.fillStyle = 'rgba(8,6,16,0.7)'; c.fillRect(rx - 3 * S, ry - 9 * S, 64 * S, 26 * S);
+  c.fillStyle = info[1]; c.fillRect(rx - 3 * S, ry - 9 * S, 1.8 * S, 26 * S);
+  txt(c, '내 역할', rx, ry - 1 * S, 5.2 * S, '#7a7f92', 'left');
+  txt(c, info[0], rx, ry + 8 * S, 9 * S, info[1], 'left');
+  txt(c, Game.mmHasBow(Game.player) ? '🏹 활 소지 · ' + info[2] : info[2],
+    rx, ry + 15 * S, 5 * S, '#a0a0c0', 'left');
+
+  /* 생존자 목록 (상단 중앙) */
+  var n = Game.entities.length;
+  var bx = W / 2 - (n * 30 * S) / 2, by = 26 * S;
+  for (var i = 0; i < n; i++) {
+    var e = Game.entities[i];
+    var ex = bx + i * 30 * S + 15 * S;
+    var alive = !e.dead;
+    var shown = MM.revealed[i] && MM.roles[i] === 'murderer';
+    var col = !alive ? '#4a4a5a' : (shown ? '#ff5c5c' : (i === 0 ? MM_COLORS[0] : '#c8ccd8'));
+    txt(c, alive ? '●' : '✖', ex, by, 7 * S, col, 'center');
+    txt(c, e.name, ex, by + 9 * S, 5.2 * S, col, 'center');
+    if (shown) txt(c, '살인자', ex, by + 17 * S, 4.8 * S, '#ff5c5c', 'center');
+  }
+  txt(c, '생존 ' + Game.mmAlive() + ' / ' + n, W / 2, by - 10 * S, 5.6 * S, '#8a8aaa', 'center');
+  if (MM.timer > 0) {
+    var sec = Math.ceil(MM.timer / 20);
+    txt(c, Math.floor(sec / 60) + ':' + ('0' + (sec % 60)).slice(-2),
+      W / 2, by + 30 * S, 8 * S, sec <= 30 ? '#ffd93d' : '#c8ccd8', 'center');
+  }
+
+  /* 바닥의 활 안내 */
+  if (MM.bowDrop) {
+    var pr = Render.project(MM.bowDrop.x, MM.bowDrop.y + 0.5, MM.bowDrop.z);
+    if (pr) txt(c, '🏹 활', pr.x, pr.y, 6.4 * S, '#ffd93d', 'center');
+  }
+};
 
 HUD.drawBedwars = function () {
   var c = this.ctx, W = this.W, H = this.H, S = this.S;
@@ -5734,6 +5922,165 @@ Game.onBlockedHit = function (target, attacker) {
 };
 
 /* =====================================================================
+   머더 미스터리 (4인)
+   역할 : 살인자 1 · 탐정 1 · 시민 2
+   ===================================================================== */
+var MM = {
+  timer: 0, speedMul: 1.0,
+  roles: [],            // 엔티티와 같은 순서 : 'murderer' | 'detective' | 'innocent'
+  revealed: [],         // 살인자가 정체를 드러냈는지
+  bowOwner: -1,         // 활을 들고 있는 엔티티 index (-1 = 바닥)
+  bowDrop: null,        // { x, y, z } 떨어진 활
+  over: false, winner: ''
+};
+var MM_NAMES = ['나', '민준', '서연', '지호'];
+var MM_COLORS = ['#6fd0ff', '#ffb35c', '#c9a6ff', '#7dff9b'];
+
+Game.mmIndexOf = function (e) { return this.entities.indexOf(e); };
+Game.mmRoleOf = function (e) { var i = this.mmIndexOf(e); return i < 0 ? '' : MM.roles[i]; };
+Game.mmIsMurderer = function (e) { return this.mmRoleOf(e) === 'murderer'; };
+Game.mmHasBow = function (e) { return MM.bowOwner === this.mmIndexOf(e); };
+
+Game.mmSetup = function () {
+  var n = this.entities.length;
+  MM.roles = new Array(n).fill('innocent');
+  MM.revealed = new Array(n).fill(false);
+  MM.over = false; MM.winner = '';
+  MM.timer = 120 * 20;                 // 2분 생존하면 시민 승리
+  /* 역할 무작위 배정 */
+  var idx = [];
+  for (var i = 0; i < n; i++) idx.push(i);
+  for (var s = idx.length - 1; s > 0; s--) { var j = Math.floor(Math.random() * (s + 1)); var t = idx[s]; idx[s] = idx[j]; idx[j] = t; }
+  MM.roles[idx[0]] = 'murderer';
+  MM.roles[idx[1]] = 'detective';
+  MM.bowOwner = idx[1];
+  MM.bowDrop = null;
+  arrows.length = 0;
+
+  var myRole = MM.roles[0];
+  var txtRole = { murderer: '살인자', detective: '탐정', innocent: '시민' }[myRole];
+  var col = { murderer: '#ff5c5c', detective: '#6fd0ff', innocent: '#7dff9b' }[myRole];
+  var sub = { murderer: '들키지 말고 전원을 처치하세요 (좌클릭 즉사)',
+              detective: '활로 살인자를 쏘세요 (우클릭 발사)',
+              innocent: '도망치세요 · 탐정이 죽으면 활을 주울 수 있습니다' }[myRole];
+  this.center('당신은 ' + txtRole, sub, 26, col, 90);
+  this.log('━━ 머더 미스터리 시작 ━━  당신의 역할: ' + txtRole, col);
+  this.log('생존자 ' + n + '명 · 살인자 1명이 섞여 있습니다', '#b8bdcd');
+};
+
+Game.mmAlive = function (role) {
+  var n = 0;
+  for (var i = 0; i < this.entities.length; i++)
+    if (!this.entities[i].dead && (!role || MM.roles[i] === role)) n++;
+  return n;
+};
+/* 살인자 외 생존자 수 */
+Game.mmInnocentsAlive = function () {
+  var n = 0;
+  for (var i = 0; i < this.entities.length; i++)
+    if (!this.entities[i].dead && MM.roles[i] !== 'murderer') n++;
+  return n;
+};
+Game.mmCheckWin = function () {
+  if (MM.over || this.state !== 'play') return;
+  if (this.mmAlive('murderer') === 0) { this.mmEnd('innocent'); return; }
+  if (this.mmInnocentsAlive() === 0) { this.mmEnd('murderer'); return; }
+  if (MM.timer > 0) {
+    MM.timer--;
+    if (MM.timer === 0) { this.mmEnd('innocent'); return; }
+    if (MM.timer === 30 * 20) this.log('30초 남았습니다 — 버티면 시민 승리', '#ffd93d');
+  }
+};
+Game.mmEnd = function (side) {
+  MM.over = true; MM.winner = side;
+  var iAmMurderer = MM.roles[0] === 'murderer';
+  var iWon = (side === 'murderer') === iAmMurderer;
+  this.center(side === 'murderer' ? '살인자 승리' : '시민 승리',
+    iWon ? '당신의 승리입니다' : '당신은 패배했습니다',
+    28, side === 'murderer' ? '#ff5c5c' : '#7dff9b', 100);
+  this.log(side === 'murderer' ? '살인자가 모두를 처치했습니다' : '살인자가 처단되었습니다',
+    side === 'murderer' ? '#ff5c5c' : '#7dff9b');
+  if (this.settings.sound) { if (iWon) Snd.bell(1.25); else Snd.low(); }
+  this.endRound(iWon ? 0 : 1);
+};
+/* 살인자가 공격하면 정체가 드러난다 */
+Game.mmReveal = function (e) {
+  var i = this.mmIndexOf(e);
+  if (i < 0 || MM.revealed[i]) return;
+  MM.revealed[i] = true;
+  this.log('⚠ ' + e.name + ' 님이 살인자입니다!', '#ff5c5c');
+  HUD.addCallout('살인자 발각', e.name, '#ff5c5c', 18);
+  Snd.callout(0.6);
+};
+
+/* ---------------- 화살 ---------------- */
+var arrows = [];
+function Arrow(owner, x, y, z, dx, dy, dz) {
+  this.o = owner;
+  this.x = this.px = x; this.y = this.py = y; this.z = this.pz = z;
+  var sp = 2.1;
+  this.vx = dx * sp; this.vy = dy * sp; this.vz = dz * sp;
+  this.life = 100; this.dead = false;
+}
+Arrow.prototype.tick = function () {
+  this.px = this.x; this.py = this.y; this.pz = this.z;
+  this.x += this.vx; this.y += this.vy; this.z += this.vz;
+  this.vy -= 0.035; this.vx *= 0.995; this.vz *= 0.995;
+  spawnParticle(this.x, this.y, this.z, 0, 0, 0, 0.05, 5, [1, 1, 0.85], T.GLOWORB, 0, true);
+  if (isSolidAt(Math.floor(this.x), Math.floor(this.y), Math.floor(this.z))) { this.dead = true; Snd.hit(); return; }
+  for (var i = 0; i < Game.entities.length; i++) {
+    var t = Game.entities[i];
+    if (t === this.o || t.dead) continue;
+    if (segHitsAABB(this.px, this.py, this.pz, this.x - this.px, this.y - this.py, this.z - this.pz, t.bb(), 0.22)) {
+      this.dead = true;
+      Snd.crit();
+      spawnRing(t.x, t.y + 1.0, t.z, 0.3, 2.0, 10, [1, 0.9, 0.4]);
+      t.hurt(1000, this.o, { bypassArmor: true, cause: 'arrow' });
+      return;
+    }
+  }
+  if (--this.life <= 0 || this.y < VOID_Y) this.dead = true;
+};
+function tickArrows() {
+  for (var i = arrows.length - 1; i >= 0; i--) { arrows[i].tick(); if (arrows[i].dead) arrows.splice(i, 1); }
+}
+Entity.prototype.shootBow = function () {
+  if (this.dead || !Game.mmHasBow(this) || this.bowCool > 0) return false;
+  this.bowCool = 22;
+  this.swingArm();
+  var lv = this.lookVec();
+  arrows.push(new Arrow(this, this.x + lv[0] * 0.6, this.eyeY() - 0.1, this.z + lv[2] * 0.6, lv[0], lv[1], lv[2]));
+  Snd.beam();
+  return true;
+};
+/* 탐정이 죽으면 활을 떨군다 → 시민이 주울 수 있다 */
+Game.mmDropBow = function (e) {
+  var i = this.mmIndexOf(e);
+  if (MM.bowOwner !== i) return;
+  MM.bowOwner = -1;
+  MM.bowDrop = { x: e.x, y: e.y + 0.4, z: e.z };
+  this.log('활이 바닥에 떨어졌습니다 — 가까이 가면 줍습니다', '#ffd93d');
+};
+Game.mmTickBow = function () {
+  if (!MM.bowDrop) return;
+  var d = MM.bowDrop;
+  spawnParticle(d.x, d.y + 0.3 + Math.sin(Game.now * 0.004) * 0.1, d.z, 0, 0.004, 0,
+    0.09, 8, [1, 0.9, 0.35], T.GLOWORB, 0, true);
+  for (var i = 0; i < this.entities.length; i++) {
+    var e = this.entities[i];
+    if (e.dead || MM.roles[i] === 'murderer') continue;
+    var dx = e.x - d.x, dz = e.z - d.z, dy = e.y - d.y;
+    if (dx * dx + dy * dy + dz * dz < 1.6) {
+      MM.bowOwner = i; MM.bowDrop = null;
+      Snd.equip();
+      this.log(e.name + ' 님이 활을 주웠습니다', '#ffd93d');
+      if (e === this.player) HUD.addCallout('활 획득', '우클릭으로 발사', '#ffd93d', 14);
+      return;
+    }
+  }
+};
+
+/* =====================================================================
    배드워즈 진행
    ===================================================================== */
 var BW = {
@@ -5860,6 +6207,14 @@ Game.onDeath = function (e, killer, cause) {
   }
   if (this.state === 'play') {
     if (this.online && e === this.player) Net.send({ t: 'd' });
+    /* --- 머더 : 승패는 mmCheckWin 이 판정한다 --- */
+    if (this.mode === 'murder') {
+      this.mmDropBow(e);
+      if (this.settings.sound) Snd.death();
+      this.addShake(0.6);
+      this.mmCheckWin();
+      return;
+    }
     /* --- 배드워즈 : 침대가 살아 있으면 부활하고 계속 --- */
     if (this.mode === 'bedwars' && this.bwHandleDeath(e)) {
       this.addShake(0.5);
@@ -6029,7 +6384,7 @@ Game.startMatch = function () {
   this.startRound();
 };
 Game.startRound = function () {
-  particles.length = 0; HUD.dmgTexts.length = 0; rings.length = 0; beams.length = 0; pearls.length = 0; winds.length = 0;
+  particles.length = 0; HUD.dmgTexts.length = 0; rings.length = 0; beams.length = 0; pearls.length = 0; winds.length = 0; arrows.length = 0;
   HUD.callouts.length = 0; HUD.comboN = 0; HUD.comboT = 0;
   this.shake = 0; this.hitStop = 0; this.timeScale = 1; this.firstBlood = false;
   this.koCam.active = false; this.koCam.target = null;
@@ -6045,6 +6400,25 @@ Game.startRound = function () {
   this.ai.hist.length = 0; this.ai.critPending = false; this.ai.blockTimer = 0; this.ai.healMode = false;
   this.ai.ultArmed = false; this.ai.ultTimer = 0; this.ai.beamCool = 0;
   this.bot.netQueue = [];
+  if (this.mode === 'murder') {
+    this.entities = [this.player, this.bot].concat(this.extraBots || []);
+    this.player.name = MM_NAMES[0]; this.bot.name = MM_NAMES[1];
+    /* 넓게 흩어져 시작 */
+    for (var mi = 0; mi < this.entities.length; mi++) {
+      var ang = (mi / this.entities.length) * TAU + 0.4;
+      var rr = 10.5;
+      var me2 = this.entities[mi];
+      me2.setKit(this.kit);
+      me2.reset({ x: CX + 0.5 + Math.cos(ang) * rr, y: SURF + 1, z: CZ + 0.5 + Math.sin(ang) * rr,
+                  yaw: -ang / DEG + 90 });
+      me2.gapples = 0; me2.pearls = 0; me2.blocks = 0;
+      me2.winds = 0; me2.fireworks = 0; me2.hasMace = false; me2.hasElytra = false;
+    }
+    for (var ai2 = 0; ai2 < (this.extraAis || []).length; ai2++) this.extraAis[ai2].setDiff(this.diff);
+    this.mmSetup();
+  } else {
+    this.entities = [this.player, this.bot];
+  }
   if (this.mode === 'bedwars') {
     this.bwReset();
     this.player.blocks = Math.max(this.player.blocks, 16);
@@ -6231,10 +6605,11 @@ Game.tick = function () {
     if (this.koCam.t > 11) this.timeScale = 1;
     if (this.koCam.t > this.koCam.dur) { this.koCam.active = false; this.timeScale = 1; }
   }
-  tickBeams(); tickPearls(); tickWinds();
+  tickBeams(); tickPearls(); tickWinds(); tickArrows();
   if (this.mode === 'bedwars' && (this.state === 'play' || this.state === 'countdown')) {
     this.bwTickGen(); this.bwCheckBeds(); this.bwTickRespawn();
   }
+  if (this.mode === 'murder' && this.state === 'play') { this.mmTickBow(); this.mmCheckWin(); }
   if (this.centerTime > 0) this.centerTime--;
   if (this.itemNameTime > 0) this.itemNameTime--;
   if (this.equipAnim > 0) this.equipAnim = Math.max(0, this.equipAnim - 0.22);
@@ -6264,6 +6639,13 @@ Game.tick = function () {
     if (this.online) { this.bot.netTick(); Net.tick(); }
     else {
       this.ai.tick(this.player); this.bot.tick();
+      /* 머더 : 추가 봇도 함께 굴린다 */
+      if (this.mode === 'murder' && this.extraAis) {
+        for (var xb = 0; xb < this.extraAis.length; xb++) {
+          this.extraAis[xb].tick(this.player);
+          this.extraBots[xb].tick();
+        }
+      }
       /* AI 날기 : 플레이어 높이를 따라다닌다 */
       if (BotMods.on && BotMods.fly && !this.bot.dead) {
         var _bt = this.bot;
@@ -6412,11 +6794,13 @@ function menuHTML() {
   }
   return '<h1>MINECRAFT PvP<span class="v2">2.0 POWER</span></h1>' +
     '<div class="sub">용암 투기장 1 vs 1 · 바닐라 전투 판정 + 궁극기</div>' +
-    '<div class="lab">게임 모드</div><div class="grid2">' +
+    '<div class="lab">게임 모드</div><div class="grid4">' +
       '<div class="opt" data-g="mode" data-v="duel"><div class="t">1 vs 1 결투</div>' +
         '<div class="d">용암 투기장 · 선승제<br>바닐라 전투 + 궁극기</div></div>' +
       '<div class="opt" data-g="mode" data-v="bedwars"><div class="t">배드워즈</div>' +
-        '<div class="d">침대를 지키고 상대 침대를 부숴라<br>자원 생성 · 상점 · 다리 놓기</div></div>' +
+        '<div class="d">침대를 지키고 상대 침대를 부숴라<br>자원 · 상점 · 다리 놓기</div></div>' +
+      '<div class="opt" data-g="mode" data-v="murder"><div class="t">머더 (4인)</div>' +
+        '<div class="d">살인자 1 · 탐정 1 · 시민 2<br>정체를 숨기고 살아남아라</div></div>' +
     '</div>' +
     '<div class="lab">맵</div><div class="grid4">' + mp + '</div>' +
     '<div class="lab">난이도</div><div class="grid4">' + d + '</div>' +
@@ -7820,6 +8204,15 @@ function boot() {
           Game.player.setKit(Game.kit); Game.bot.setKit(Game.kit);
           Game.player.reset(SPAWNS[0]); Game.bot.reset(SPAWNS[1]);
           Game.entities = [Game.player, Game.bot];
+          /* 머더용 추가 봇 2명 (엔티티 배열에는 모드 진입 시 합류) */
+          Game.extraBots = [];
+          Game.extraAis = [];
+          for (var eb = 0; eb < 2; eb++) {
+            var nb = new Entity({ name: MM_NAMES[2 + eb], isBot: true, skinIdx: (2 + eb) % 4 });
+            nb.setKit(Game.kit); nb.reset(SPAWNS[eb % SPAWNS.length]);
+            Game.extraBots.push(nb);
+            Game.extraAis.push(new BotAI(nb, Game.diff));
+          }
           Game.ai = new BotAI(Game.bot, Game.diff);
           Game.menuCam = {
             x: CX + 24, y: SURF + 5, z: CZ, px: CX + 24, py: SURF + 5, pz: CZ,
